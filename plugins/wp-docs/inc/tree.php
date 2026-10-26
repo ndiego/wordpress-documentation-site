@@ -137,13 +137,12 @@ function wp_docs_build_tree() {
 			'order'       => (int) $row->menu_order,
 			'depth'       => 0,
 		);
+		$nodes[ $id ] = $node;
 		if ( '' === $path && 0 === $node['parent'] && ( 'index' === $node['doc_id'] || '' === $node['doc_id'] ) && null !== $row->path ) {
-			$home          = $id;
-			$nodes[ $id ]  = $node;
+			$home = $id;
 			continue;
 		}
-		$nodes[ $id ]                    = $node;
-		$kids[ (int) $row->post_parent ][] = $id;
+		$kids[ $node['parent'] ][] = $id;
 	}
 
 	// Keep what is reachable from the sections, in order, and record depth and sidebar order.

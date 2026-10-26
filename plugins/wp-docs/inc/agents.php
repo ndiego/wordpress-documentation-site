@@ -271,9 +271,8 @@ class Agents {
 			'llms',
 			static function () {
 				$tree  = wp_docs_get_tree();
-				$title = 'WordPress Documentation';
 				$lines = array(
-					'# ' . $title,
+					'# WordPress Documentation',
 					'',
 					'> ' . self::summary(),
 					'',
@@ -291,14 +290,14 @@ class Agents {
 				}
 
 				// One group per section: the section landing, then every page under it in sidebar order.
-				$section = 0;
+				$first = true;
 				foreach ( $tree['order'] as $id ) {
 					$node = $tree['nodes'][ $id ];
 					if ( 0 === $node['depth'] ) {
-						if ( $section ) {
+						if ( ! $first ) {
 							$lines[] = '';
 						}
-						$section = $id;
+						$first   = false;
 						$lines[] = '## ' . self::plain( $node['title'] );
 						$lines[] = '';
 					}
@@ -451,15 +450,14 @@ class Agents {
 				$index = array();
 				foreach ( $ids as $id ) {
 					$node   = $tree['nodes'][ $id ];
-					$crumbs = array();
-					$parent = $node['parent'];
+					// Ancestors up to the section landing (the topmost one, or the page itself).
+					$crumbs     = array();
+					$section_id = $id;
+					$parent     = $node['parent'];
 					while ( $parent && isset( $tree['nodes'][ $parent ] ) ) {
 						array_unshift( $crumbs, self::plain( $tree['nodes'][ $parent ]['title'] ) );
-						$parent = $tree['nodes'][ $parent ]['parent'];
-					}
-					$section_id = $id;
-					while ( $tree['nodes'][ $section_id ]['parent'] && isset( $tree['nodes'][ $tree['nodes'][ $section_id ]['parent'] ] ) ) {
-						$section_id = $tree['nodes'][ $section_id ]['parent'];
+						$section_id = $parent;
+						$parent     = $tree['nodes'][ $parent ]['parent'];
 					}
 					$headings = array();
 					foreach ( Transforms\Anchors\headings( $content[ $id ] ?? '' ) as $heading ) {

@@ -99,28 +99,27 @@ function wp_docs_get_breadcrumbs( $post = null ) {
 	while ( $id && ! isset( $seen[ $id ] ) ) {
 		$seen[ $id ] = true;
 		if ( isset( $tree['nodes'][ $id ] ) ) {
-			$node    = $tree['nodes'][ $id ];
-			$chain[] = array(
-				'id'      => $id,
-				'title'   => $node['title'],
-				'url'     => $node['url'],
-				'current' => $id === $post->ID,
-			);
-			$id      = (int) $node['parent'];
+			$node   = $tree['nodes'][ $id ];
+			$title  = $node['title'];
+			$url    = $node['url'];
+			$parent = (int) $node['parent'];
 		} else {
 			// Not in the published tree (a draft preview): fall back to the post itself.
 			$p = get_post( $id );
 			if ( ! $p ) {
 				break;
 			}
-			$chain[] = array(
-				'id'      => $id,
-				'title'   => get_the_title( $p ),
-				'url'     => (string) get_permalink( $p ),
-				'current' => $id === $post->ID,
-			);
-			$id      = (int) $p->post_parent;
+			$title  = get_the_title( $p );
+			$url    = (string) get_permalink( $p );
+			$parent = (int) $p->post_parent;
 		}
+		$chain[] = array(
+			'id'      => $id,
+			'title'   => $title,
+			'url'     => $url,
+			'current' => $id === $post->ID,
+		);
+		$id      = $parent;
 	}
 
 	return array_merge( $crumbs, array_reverse( $chain ) );
