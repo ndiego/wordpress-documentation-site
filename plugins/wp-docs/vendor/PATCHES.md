@@ -3,11 +3,11 @@
 | Directory | Source | Files |
 |---|---|---|
 | `global-header-footer/` | [WordPress/wporg-mu-plugins](https://github.com/WordPress/wporg-mu-plugins) `mu-plugins/blocks/global-header-footer/` | PHP, `build/`, `images/`, `js/`; `src/` and `postcss/` dropped |
-| `global-fonts/` | [WordPress/wporg-mu-plugins](https://github.com/WordPress/wporg-mu-plugins) `mu-plugins/global-fonts/` | as is |
+| `global-fonts/` | [WordPress/wporg-mu-plugins](https://github.com/WordPress/wporg-mu-plugins) `mu-plugins/global-fonts/` | `index.php`, `helper-functions.php`, `style.css`, `Inter/`, `IBMPlexMono/`; the other font families are not vendored |
 
 ## Patches
 
-None. The vendored files are unchanged.
+- `global-fonts/style.css`: the three `@import` lines for the Noto Serif JP, KR and SC stylesheets are removed, because those families (54 MB) are not vendored and the imports returned 404 on every page and blocked rendering. Everything else is unchanged.
 
 ## Shims (in `../inc/global-header-footer.php`, not in the vendored files)
 
