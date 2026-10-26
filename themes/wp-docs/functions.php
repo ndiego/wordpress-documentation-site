@@ -24,7 +24,7 @@ add_action( 'after_setup_theme', __NAMESPACE__ . '\setup' );
 add_action( 'init', __NAMESPACE__ . '\register_blocks' );
 add_action( 'wp_enqueue_scripts', __NAMESPACE__ . '\enqueue_assets' );
 add_action( 'wp_enqueue_scripts', __NAMESPACE__ . '\dequeue_assets', 100 );
-add_action( 'wp_head', __NAMESPACE__ . '\scheme_script', 0 );
+add_action( 'wp_head', __NAMESPACE__ . '\js_script', 0 );
 add_action( 'wp_head', __NAMESPACE__ . '\meta_description', 1 );
 add_filter( 'pre_render_block', __NAMESPACE__ . '\global_header_footer_fallback', 10, 2 );
 add_filter( 'render_block_core/group', __NAMESPACE__ . '\label_rail', 10, 2 );
@@ -90,12 +90,10 @@ function dequeue_assets() {
 }
 
 /**
- * Apply the saved color scheme before the first paint, and mark that scripts run.
+ * Mark that scripts run (`html.js`) before the first paint, so script-only controls can be hidden without them.
  */
-function scheme_script() {
-	wp_print_inline_script_tag(
-		"(function(d){d.classList.add('js');try{var s=localStorage.getItem('wp-docs-scheme');if(s==='light'||s==='dark'){d.setAttribute('data-scheme',s);}}catch(e){}})(document.documentElement);"
-	);
+function js_script() {
+	wp_print_inline_script_tag( "document.documentElement.classList.add('js');" );
 }
 
 /**

@@ -122,9 +122,5 @@ $classes = 'wp-docs-sidebar' . ( ! empty( $attributes['drawerOnly'] ) ? ' is-dra
 			<?php echo $groups; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 		</ul>
 	</div>
-	<div class="wp-docs-sidebar__scheme">
-		<span><?php esc_html_e( 'Appearance', 'wp-docs' ); ?></span>
-		<?php echo scheme_control_markup(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
-	</div>
 </nav>
 <div class="wp-docs-sidebar-backdrop" data-wp-docs-menu-close hidden></div>

@@ -177,30 +177,3 @@ function format_date( $value ) {
 	return $time ? wp_date( get_option( 'date_format', 'F j, Y' ), $time ) : '';
 }
 
-/**
- * The color scheme control: System, Light, Dark. page-actions.js wires every instance.
- *
- * @return string
- */
-function scheme_control_markup() {
-	$schemes = array(
-		'system' => array( 'desktop', __( 'System', 'wp-docs' ) ),
-		'light'  => array( 'sun', __( 'Light', 'wp-docs' ) ),
-		'dark'   => array( 'moon', __( 'Dark', 'wp-docs' ) ),
-	);
-	$buttons = '';
-	foreach ( $schemes as $value => $def ) {
-		$buttons .= sprintf(
-			'<button type="button" class="wp-docs-scheme__option" data-scheme-value="%1$s" aria-pressed="%2$s" title="%3$s">%4$s<span class="screen-reader-text">%3$s</span></button>',
-			esc_attr( $value ),
-			'system' === $value ? 'true' : 'false',
-			esc_attr( $def[1] ),
-			icon( $def[0], 18 )
-		);
-	}
-	return sprintf(
-		'<div class="wp-docs-scheme" role="group" aria-label="%1$s" data-wp-docs-scheme>%2$s</div>',
-		esc_attr__( 'Color scheme', 'wp-docs' ),
-		$buttons
-	);
-}

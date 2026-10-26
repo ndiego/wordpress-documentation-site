@@ -14,7 +14,7 @@ style.css             theme header only
 functions.php         setup, block registration, assets, small filters (below)
 inc/data.php          data access: the plugin's helpers, with fallbacks to post meta
 inc/anchors.php       heading ids and anchor links, the table of contents
-inc/render.php        markup shared by blocks (page actions, TOC list, chips, scheme control)
+inc/render.php        markup shared by blocks (page actions, TOC list, chips)
 inc/search.php        search limited to wp-docs, fallback search index route
 inc/icons.php         inline SVG icons (@wordpress/icons paths, plus sun, moon, GitHub)
 blocks/<name>/        nine server-rendered blocks (block.json + render.php)
@@ -23,14 +23,14 @@ templates/            single-wp-docs, archive-wp-docs and front-page (the home),
 assets/style.css      the only stylesheet that blocks rendering
 assets/search-palette.css   the palette dialog, loaded by search-palette.js when idle or on first open
 assets/sidebar.js     toggles (sessionStorage), drawer, scroll the current page into view
-assets/page-actions.js      Copy page, its menu, color scheme, feedback, code copy buttons
+assets/page-actions.js      Copy page, its menu, feedback, code copy buttons
 assets/toc.js         scroll-spy for "On this page" (single pages only)
 assets/search-palette.js    the ⌘K palette
 ```
 
 Everything is plain CSS and JavaScript, enqueued only on the front end, with `defer`. A tiny inline script
-in `<head>` applies the saved color scheme before the first paint and adds `html.js`; anything that needs
-scripts (Copy page, feedback, the scheme control, the palette trigger, sidebar chevrons) is hidden without it.
+in `<head>` adds `html.js` before the first paint; anything that needs scripts (Copy page, feedback, the palette
+trigger, sidebar chevrons) is hidden without it.
 The sidebar, breadcrumbs, page header, TOC, cards and home are complete HTML from the server.
 
 ### Filters in functions.php
@@ -44,7 +44,7 @@ The sidebar, breadcrumbs, page header, TOC, cards and home are complete HTML fro
 | `render_block_core/group` | names the right rail landmark `aside aria-label="On this page"` |
 | `single_template_hierarchy` | the home post (`_wp_docs_path = ""`) renders with the home template wherever it is reached |
 | `pre_get_posts` | front-end search is limited to `wp-docs` |
-| `wp_head` | the color scheme script; a meta description from the page's description |
+| `wp_head` | the `html.js` script; a meta description from the page's description |
 | `wp_enqueue_scripts` | dequeues code-syntax-block's Prism colors (the theme colors Prism tokens from its own custom properties) |
 
 ## Blocks
@@ -54,7 +54,7 @@ template blocks, not content blocks). Each renders nothing when it has nothing t
 
 | Block | Inputs | Renders |
 |---|---|---|
-| `wp-docs/docs-bar` | the tree (section names for the palette), `wp_docs_theme_repo_url` filter | Menu button (below 782px), W mark and "Documentation", User docs / Developer docs / Code reference, the search trigger (with the index URLs), the System / Light / Dark control, GitHub |
+| `wp-docs/docs-bar` | the tree (section names for the palette), `wp_docs_theme_repo_url` filter | Menu button (below 782px), W mark and "Documentation", User docs / Developer docs / Code reference, the search trigger (with the index URLs), GitHub |
 | `wp-docs/sidebar` | the tree, the current post; attribute `drawerOnly` (bool, used by the home: drawer on phones, hidden on wider screens) | `nav#wp-docs-sidebar aria-label="Documentation"`: each section a label link with a chevron, then its pages; a page with children has its own chevron; the current page and its ancestors are open; "Planned" badge for placeholders |
 | `wp-docs/breadcrumbs` | `wp_docs_get_breadcrumbs()` | Documentation › ancestors (the current page is the H1) |
 | `wp-docs/page-header` | page meta (`type`, `status`, `description`, `issue_url`), TOC items | type eyebrow, H1, lede, the placeholder or draft banner; below 1100px also Copy page and an "On this page" disclosure |
@@ -87,8 +87,8 @@ Presets in `theme.json`: the WordPress.org palette (`blueberry-1`, `deep-blueber
 (`10` = 4px to `80` = 64px). Inter and IBM Plex Mono come from the plugin's `wporg-global-fonts` stylesheet,
 which the theme's stylesheet depends on when it is registered; no other fonts load.
 
-Semantic custom properties on `:root` in `assets/style.css`, redefined under `:root[data-scheme="dark"]` and,
-for System, under `@media (prefers-color-scheme: dark) { :root:not([data-scheme="light"]) }`:
+Semantic custom properties on `:root` in `assets/style.css`. The theme is light only: color scheme is a
+WordPress.org site-level concern, not something the documentation decides for itself.
 
 | Token | Use |
 |---|---|
@@ -102,12 +102,10 @@ for System, under `@media (prefers-color-scheme: dark) { :root:not([data-scheme=
 | `--wp-docs-bar-height`, `--wp-docs-sidebar` 260px, `--wp-docs-rail` 220px, `--wp-docs-measure` 760px, `--wp-docs-page` 1320px, `--wp-docs-gutter` 24px (16px on phones) | layout |
 | `--wp-docs-radius` 8px, `--wp-docs-radius-button` 6px, `--wp-docs-radius-chip` 4px, `--wp-docs-ease` 150ms | shape and motion |
 
-Every text and background pair above was checked at AA (4.5:1) in both schemes; the lowest is 4.78 in light
-and 5.59 in dark. The scheme is stored in `localStorage` as `wp-docs-scheme` (`light`, `dark`, or absent for
-System).
+Every text and background pair above was checked at AA (4.5:1); the lowest is 4.78.
 
 Breakpoints: below 1100px the rail goes and its actions and TOC move into the page header; below 782px the
-sidebar becomes a drawer (with the scheme control in its footer) opened from the docs bar's Menu button.
+sidebar becomes a drawer opened from the docs bar's Menu button.
 
 ## Screenshots
 
@@ -119,15 +117,13 @@ ONLY=palette,drawer npm run shots    # some scenes
 SECTION=/docs/write/ LEAF=/docs/write/media/add-media/ QUERY=image npm run shots
 ```
 
-Scenes: `home`, `section`, `leaf`, `leaf-full`, `palette`, `drawer` (390 only), `menu` (1440 only),
-`dark-home`, `dark-section`, `dark-leaf`, `dark-palette` (1440 only), at 1440 and 390 pixels. The script
-prints any response of 400 or more per page.
+Scenes: `home`, `section`, `leaf`, `leaf-full`, `palette`, `drawer` (390 only), `menu` (1440 only), at 1440
+and 390 pixels. The script prints any response of 400 or more per page.
 
 ## Checked
 
 - Keyboard (Playwright, 2026-10-26): skip link first; sidebar chevrons with Enter and Space; Copy page menu
-  opens with ArrowDown, moves with the arrows, closes with Escape and returns focus; scheme buttons with Enter
-  (state in `aria-pressed`); palette opens with `/` and Ctrl+K, arrows set `aria-activedescendant`, Enter
+  opens with ArrowDown, moves with the arrows, closes with Escape and returns focus; palette opens with `/` and Ctrl+K, arrows set `aria-activedescendant`, Enter
   navigates, Escape closes; drawer focuses its close button, traps Tab, closes on Escape and returns focus.
   Every TOC link resolves to a heading id; no horizontal scroll at 390px; no script errors.
 - Lighthouse 12.6.1 on `/docs/write/create-a-post/`: mobile Performance 97, Accessibility 100; desktop

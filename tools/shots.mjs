@@ -3,8 +3,7 @@
  * Screenshots of the local site for design review, into tools/shots/ (gitignored).
  *
  * Scenes: the home, a section landing, a tutorial page with the right rail (top of the page and the full
- * page), the search palette open with a query, the mobile drawer open, and the dark scheme, at 1440 and
- * 390 pixels wide.
+ * page), the search palette open with a query and the mobile drawer open, at 1440 and 390 pixels wide.
  *
  *   npm run shots                              # every scene
  *   ONLY=home,palette npm run shots            # some scenes (names below)
@@ -71,7 +70,7 @@ async function launch() {
 
 /**
  * Each scene: a name, the widths it runs at, and what to do before the screenshot.
- * `scheme` sets the stored color scheme before the page loads; `full` takes the whole page.
+ * `full` takes the whole page.
  */
 const scenes = [
 	{ name: 'home', path: paths.home, full: true },
@@ -106,21 +105,6 @@ const scenes = [
 			await page.waitForTimeout( 100 );
 		},
 	},
-	{ name: 'dark-home', path: paths.home, scheme: 'dark' },
-	{ name: 'dark-section', path: paths.section, scheme: 'dark', full: true },
-	{ name: 'dark-leaf', path: paths.leaf, scheme: 'dark' },
-	{
-		name: 'dark-palette',
-		path: paths.leaf,
-		scheme: 'dark',
-		widths: [ 1440 ],
-		async act( page ) {
-			await page.keyboard.press( 'Control+k' );
-			await page.waitForSelector( 'dialog.wp-docs-search[open]' );
-			await page.keyboard.type( paths.query, { delay: 20 } );
-			await page.waitForSelector( '.wp-docs-search__item' );
-		},
-	},
 ];
 
 mkdirSync( outDir, { recursive: true } );
@@ -140,13 +124,6 @@ for ( const width of widths ) {
 			colorScheme: 'light',
 			reducedMotion: 'reduce',
 		} );
-		if ( scene.scheme ) {
-			await context.addInitScript( ( value ) => {
-				try {
-					window.localStorage.setItem( 'wp-docs-scheme', value );
-				} catch ( e ) {}
-			}, scene.scheme );
-		}
 		const page = await context.newPage();
 		const errors = [];
 		page.on( 'pageerror', ( error ) => errors.push( error.message ) );

@@ -1,6 +1,6 @@
 <?php
 /**
- * The docs bar: wordmark, documentation sets, search trigger, color scheme, GitHub.
+ * The docs bar: wordmark, documentation sets, search trigger, GitHub.
  *
  * @package WP_Docs_Theme
  */
@@ -48,7 +48,6 @@ $search_url = add_query_arg(
 				<span class="wp-docs-search-trigger__label"><?php esc_html_e( 'Search documentation', 'wp-docs' ); ?></span>
 				<kbd aria-hidden="true">⌘K</kbd>
 			</button>
-			<?php echo scheme_control_markup(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
 			<a class="wp-docs-bar__github" href="<?php echo esc_url( repo_url() ); ?>">
 				<?php echo icon( 'github', 20 ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
 				<span class="screen-reader-text"><?php esc_html_e( 'The documentation on GitHub', 'wp-docs' ); ?></span>

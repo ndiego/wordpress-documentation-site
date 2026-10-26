@@ -37,8 +37,7 @@ move into the page header. Below 782px the sidebar becomes a drawer opened from 
 **Docs bar.** Left: a small W mark plus "Documentation" (links to `/docs/`), then a secondary link set, muted:
 "User docs" (current, bold), "Developer docs" and "Code reference" as external links to developer.wordpress.org.
 This shows where the unified site is going without pretending the other two exist here. Center or right: the search
-trigger, a pill with a magnifier, "Search documentation" and a `⌘K` kbd. Right: the color scheme toggle (system,
-light, dark) and a GitHub link to the content repo.
+trigger, a pill with a magnifier, "Search documentation" and a `⌘K` kbd. Right: a GitHub link to the content repo.
 
 **Sidebar.** Groups are the top-level folders, in order, each with a label and a chevron; groups are open by default
 and remember their state in `sessionStorage`. Inside a group, pages are a plain list; a page with children is a row
@@ -86,10 +85,10 @@ breadcrumb, a matched heading shown as `# heading`, keyboard navigation, recent 
 comes from the plugin's `search-index` endpoint. Start from the hub's `search-palette.js` and `.css`
 (`~/Developer/wporg-docs/site/themes/wporg-docs-2026/assets/`) and simplify: there is one tab now, no scopes.
 
-**Color scheme.** Light is the default and must look finished first. Dark is supported through CSS custom
-properties on `:root` and `[data-scheme="dark"]`, chosen by the toggle (persisted in `localStorage`) or
-`prefers-color-scheme`. The global header and footer are dark in both schemes. Code blocks, callouts, cards and
-the sidebar all take their colors from the tokens; nothing is hard-coded twice.
+**Color scheme.** Light only. WordPress.org has no dark mode, and a color scheme is a site-level decision, not
+one the documentation makes for itself; if the site ever adds one, the theme follows it. The global header and
+footer are dark by design. Code blocks, callouts, cards and the sidebar all take their colors from the tokens on
+`:root`; nothing is hard-coded twice.
 
 ## Tokens (theme.json presets and CSS custom properties)
 
@@ -115,7 +114,7 @@ lightbulb, warning, check), stroke based.
 
 Semantic landmarks (`header`, `nav aria-label="Documentation"`, `main`, `aside aria-label="On this page"`,
 `footer`); skip link; visible focus rings (2px blueberry, 2px offset); the sidebar and palette are keyboard
-operable; the color scheme toggle announces its state; contrast at AA on every token pair in both schemes.
+operable; contrast at AA on every token pair.
 No framework. One stylesheet, two small scripts (sidebar and palette), no web fonts beyond the WordPress.org ones,
 no third-party requests from the theme. Lighthouse performance at 95 or above on a leaf page.
 

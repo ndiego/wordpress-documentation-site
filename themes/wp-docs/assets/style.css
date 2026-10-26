@@ -1,7 +1,7 @@
 /**
  * wp-docs theme styles. One stylesheet, no build step.
  *
- * 1. Tokens (light, dark, system)
+ * 1. Tokens
  * 2. Base
  * 3. Global header and footer fallbacks
  * 4. Docs bar
@@ -85,103 +85,6 @@
 	--wp-docs-ease: 150ms ease;
 	--wp-docs-font: var(--wp--preset--font-family--inter, Inter, system-ui, sans-serif);
 	--wp-docs-mono: var(--wp--preset--font-family--monospace, "IBM Plex Mono", ui-monospace, monospace);
-}
-
-/* Dark: chosen with the toggle, or by the system when the toggle is on System. */
-:root[data-scheme="dark"] {
-	color-scheme: dark;
-
-	--wp-docs-bg: #161719;
-	--wp-docs-bg-subtle: #1e2023;
-	--wp-docs-bg-hover: #272a2e;
-	--wp-docs-fg: #f0f0f0;
-	--wp-docs-fg-muted: #a3a6ad;
-	--wp-docs-border: #2f3337;
-	--wp-docs-border-strong: #4a5057;
-	--wp-docs-accent: #8299ff;
-	--wp-docs-accent-hover: #a5b5ff;
-	--wp-docs-accent-strong: #b9c6ff;
-	--wp-docs-accent-tint: #1f2645;
-	--wp-docs-code-bg: #1e2023;
-	--wp-docs-code-fg: #e6e6e6;
-	--wp-docs-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
-	--wp-docs-backdrop: rgba(0, 0, 0, 0.6);
-
-	--wp-docs-note-bg: #1c2340;
-	--wp-docs-note: #8299ff;
-	--wp-docs-tip-bg: #13291c;
-	--wp-docs-tip: #4ee38a;
-	--wp-docs-important-bg: #2b2812;
-	--wp-docs-important: #f2e35c;
-	--wp-docs-warning-bg: #341819;
-	--wp-docs-warning: #ff7a7b;
-
-	--wp-docs-type-tutorial: #4ee38a;
-	--wp-docs-type-tutorial-bg: #13291c;
-	--wp-docs-type-guide: #8299ff;
-	--wp-docs-type-guide-bg: #1c2340;
-	--wp-docs-type-concept: #c4a3ff;
-	--wp-docs-type-concept-bg: #2a1f40;
-	--wp-docs-type-reference: #c9ccd1;
-	--wp-docs-type-reference-bg: #272a2e;
-
-	--wp-docs-syntax-comment: #8fb98f;
-	--wp-docs-syntax-punctuation: #a3a6ad;
-	--wp-docs-syntax-tag: #7ee0a5;
-	--wp-docs-syntax-string: #9ecbff;
-	--wp-docs-syntax-number: #ffb38a;
-	--wp-docs-syntax-operator: #f5c26b;
-	--wp-docs-syntax-function: #f09cd0;
-	--wp-docs-syntax-keyword: #8fb3ff;
-}
-
-@media (prefers-color-scheme: dark) {
-	:root:not([data-scheme="light"]) {
-		color-scheme: dark;
-
-		--wp-docs-bg: #161719;
-		--wp-docs-bg-subtle: #1e2023;
-		--wp-docs-bg-hover: #272a2e;
-		--wp-docs-fg: #f0f0f0;
-		--wp-docs-fg-muted: #a3a6ad;
-		--wp-docs-border: #2f3337;
-		--wp-docs-border-strong: #4a5057;
-		--wp-docs-accent: #8299ff;
-		--wp-docs-accent-hover: #a5b5ff;
-		--wp-docs-accent-strong: #b9c6ff;
-		--wp-docs-accent-tint: #1f2645;
-		--wp-docs-code-bg: #1e2023;
-		--wp-docs-code-fg: #e6e6e6;
-		--wp-docs-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
-		--wp-docs-backdrop: rgba(0, 0, 0, 0.6);
-
-		--wp-docs-note-bg: #1c2340;
-		--wp-docs-note: #8299ff;
-		--wp-docs-tip-bg: #13291c;
-		--wp-docs-tip: #4ee38a;
-		--wp-docs-important-bg: #2b2812;
-		--wp-docs-important: #f2e35c;
-		--wp-docs-warning-bg: #341819;
-		--wp-docs-warning: #ff7a7b;
-
-		--wp-docs-type-tutorial: #4ee38a;
-		--wp-docs-type-tutorial-bg: #13291c;
-		--wp-docs-type-guide: #8299ff;
-		--wp-docs-type-guide-bg: #1c2340;
-		--wp-docs-type-concept: #c4a3ff;
-		--wp-docs-type-concept-bg: #2a1f40;
-		--wp-docs-type-reference: #c9ccd1;
-		--wp-docs-type-reference-bg: #272a2e;
-
-		--wp-docs-syntax-comment: #8fb98f;
-		--wp-docs-syntax-punctuation: #a3a6ad;
-		--wp-docs-syntax-tag: #7ee0a5;
-		--wp-docs-syntax-string: #9ecbff;
-		--wp-docs-syntax-number: #ffb38a;
-		--wp-docs-syntax-operator: #f5c26b;
-		--wp-docs-syntax-function: #f09cd0;
-		--wp-docs-syntax-keyword: #8fb3ff;
-	}
 }
 
 /* 2. Base ------------------------------------------------------------------------------------ */
@@ -274,7 +177,6 @@ button {
 /* Things that need scripts stay hidden without them. */
 html:not(.js) [data-wp-docs-actions],
 html:not(.js) [data-wp-docs-feedback],
-html:not(.js) [data-wp-docs-scheme],
 html:not(.js) [data-wp-docs-search],
 html:not(.js) [data-wp-docs-menu],
 html:not(.js) .wp-docs-nav__toggle {
@@ -454,40 +356,6 @@ html:not(.js) .wp-docs-nav__toggle {
 .wp-docs-bar__menu {
 	display: none;
 	margin-left: -8px;
-	color: var(--wp-docs-fg);
-}
-
-/* Color scheme: a three-way segmented control. */
-.wp-docs-scheme {
-	display: inline-flex;
-	gap: 2px;
-	padding: 2px;
-	border: 1px solid var(--wp-docs-border);
-	border-radius: var(--wp-docs-radius);
-}
-
-.wp-docs-scheme__option {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 28px;
-	height: 28px;
-	margin: 0;
-	padding: 0;
-	border: 0;
-	border-radius: var(--wp-docs-radius-button);
-	background: transparent;
-	color: var(--wp-docs-fg-muted);
-	cursor: pointer;
-	transition: color var(--wp-docs-ease), background-color var(--wp-docs-ease);
-}
-
-.wp-docs-scheme__option:hover {
-	color: var(--wp-docs-fg);
-}
-
-.wp-docs-scheme__option[aria-pressed="true"] {
-	background: var(--wp-docs-bg-hover);
 	color: var(--wp-docs-fg);
 }
 
@@ -2331,10 +2199,6 @@ html:not(.js) .wp-docs-hero__search kbd {
 	cursor: pointer;
 }
 
-:root[data-scheme="dark"] .wp-docs-search-form .wp-block-search__button {
-	color: #161719;
-}
-
 .wp-docs-results {
 	max-width: var(--wp-docs-measure);
 	margin-top: 32px;
@@ -2508,10 +2372,6 @@ html:not(.js) .wp-docs-hero__search kbd {
 		gap: 4px;
 	}
 
-	.wp-docs-bar__tools .wp-docs-scheme {
-		display: none;
-	}
-
 	.wp-docs-layout,
 	.wp-docs-layout.is-listing {
 		display: block;
@@ -2625,10 +2485,6 @@ html:not(.js) .wp-docs-hero__search kbd {
 		padding: 16px 12px 32px;
 	}
 
-	.js .wp-docs-sidebar__scheme {
-		display: flex;
-	}
-
 	.js .wp-docs-sidebar-backdrop:not([hidden]) {
 		position: fixed;
 		inset: 0;
@@ -2678,12 +2534,6 @@ html:not(.js) .wp-docs-hero__search kbd {
 	}
 }
 
-@media (min-width: 782px) {
-	.wp-docs-sidebar__scheme {
-		display: none !important;
-	}
-}
-
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
@@ -2709,20 +2559,4 @@ html:not(.js) .wp-docs-hero__search kbd {
 	.wp-docs-layout {
 		display: block;
 	}
-}
-
-/* The color scheme control inside the drawer (the docs bar has no room for it on a phone). */
-.wp-docs-sidebar__scheme {
-	display: none;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	padding: 12px 16px 12px 20px;
-	border-top: 1px solid var(--wp-docs-border);
-	color: var(--wp-docs-fg-muted);
-	font-size: 14px;
-}
-
-html:not(.js) .wp-docs-sidebar__scheme {
-	display: none !important;
 }

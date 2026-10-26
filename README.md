@@ -16,6 +16,7 @@ plugins/wp-docs/          the wp-docs post type, the importer, redirects, Markdo
 plugins/wporg-markdown/   the stock WordPress.org Markdown importer, vendored unchanged (SOURCE.md)
 themes/wp-docs/           the block theme
 tools/env/                wp-env setup script, .htaccess, sample content
+tools/studio/             the same site in WordPress Studio, without Docker
 .wp-env.json              the local environment
 ```
 
@@ -34,8 +35,38 @@ change shows up on the next import without a push.
 
 ## Run it locally
 
-Requirements: Docker Desktop, Node 24, and the content repository checked out next to this one
-(`../wordpress-documentation`).
+Two ways, same plugin, theme and import. wp-env is the reference environment (it is what CI and the static export
+use); WordPress Studio is the quicker one for day-to-day tweaking, with no Docker and native PHP.
+
+Requirements for either: Node 24 and the content repository checked out next to this one
+(`../wordpress-documentation`). wp-env also needs Docker Desktop.
+
+### WordPress Studio
+
+```bash
+npm run studio:setup   # creates ~/Studio/wordpress-documentation, links plugins/ and themes/, imports
+```
+
+The script runs the [Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/) (`studio` on
+the PATH, or the one inside Studio.app) to create a site with WordPress 7.1.3 and PHP 8.3 on the native runtime,
+with file access outside the site directory so it can follow the symlinks into this repository and read the
+content checkout. It writes the three constants below (and `JETPACK_DEV_DEBUG`) into an mu-plugin,
+`wp-content/mu-plugins/wp-docs-local.php`, installs Jetpack 16.3.1 and Code Syntax Block 3.2.1, and runs the same
+`tools/env/setup.sh` as wp-env. Run it again any time; it only adds what is missing and re-imports.
+
+The site opens at the URL the script prints (`http://localhost:8882/docs/` on the first run) and shows up in the
+Studio app. Theme and plugin edits are live because the directories are symlinks. Day to day:
+
+```bash
+npm run studio:import                        # wp wp-docs import (only changed pages)
+npm run studio:wp -- wp-docs import --force  # re-import every page
+npm run studio:wp -- wp-docs status
+BASE_URL=http://localhost:8882 npm run shots
+```
+
+`STUDIO_SITE` and `WP_DOCS_CONTENT` override the site directory and the content checkout.
+
+### wp-env
 
 ```bash
 export PATH="$HOME/.docker/bin:$PATH"     # Docker Desktop's CLI; `open -a Docker` if `docker info` fails

@@ -8,7 +8,7 @@ runs on the WordPress site when one is deployed, and locally on http://localhost
 
 Open the home. Point out: the WordPress.org global header and footer are the real ones, unchanged; everything
 between them is new. Four doors, a numbered "New to WordPress?" path, a WordPress and AI strip with honest
-"Planned" chips, the block reference as a row of counts. Toggle dark mode in the docs bar.
+"Planned" chips, the block reference as a row of counts.
 
 What it proves: the site is a WordPress block theme on the WordPress.org header and footer, not a static site
 generator pretending to be WordPress.

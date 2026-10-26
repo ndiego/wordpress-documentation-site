@@ -17,6 +17,9 @@
 		"stop": "wp-env stop",
 		"setup": "wp-env run cli bash wp-docs-tools/setup.sh",
 		"import": "wp-env run cli wp wp-docs import",
+		"studio:setup": "bash tools/studio/setup.sh",
+		"studio:import": "bash tools/studio/wp.sh wp-docs import",
+		"studio:wp": "bash tools/studio/wp.sh",
 		"export": "node tools/export-static.mjs",
 		"shots": "node tools/shots.mjs"
 	}

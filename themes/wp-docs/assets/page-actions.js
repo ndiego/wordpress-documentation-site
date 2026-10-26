@@ -1,10 +1,8 @@
 /**
- * Page actions: "Copy page" (the page's Markdown), its menu, the color scheme control, the
- * "Was this page helpful?" buttons and a copy button on every code block.
+ * Page actions: "Copy page" (the page's Markdown), its menu, the "Was this page helpful?" buttons and a
+ * copy button on every code block.
  */
 ( function () {
-	const SCHEME_KEY = 'wp-docs-scheme';
-	const root = document.documentElement;
 
 	/* Clipboard, with a fallback for browsers without the async API (or without permission). */
 	function copyText( text ) {
@@ -136,42 +134,6 @@
 		if ( ! event.target.closest( '[data-wp-docs-actions]' ) ) {
 			closeMenus();
 		}
-	} );
-
-	/* Color scheme: System (follows the OS), Light, Dark. Applied before paint by the inline head script. */
-	function storedScheme() {
-		try {
-			const value = window.localStorage.getItem( SCHEME_KEY );
-			return value === 'light' || value === 'dark' ? value : 'system';
-		} catch ( e ) {
-			return 'system';
-		}
-	}
-
-	function applyScheme( value ) {
-		if ( value === 'light' || value === 'dark' ) {
-			root.setAttribute( 'data-scheme', value );
-		} else {
-			root.removeAttribute( 'data-scheme' );
-		}
-		try {
-			if ( value === 'system' ) {
-				window.localStorage.removeItem( SCHEME_KEY );
-			} else {
-				window.localStorage.setItem( SCHEME_KEY, value );
-			}
-		} catch ( e ) {
-			// The choice lasts for this page only.
-		}
-		document.querySelectorAll( '[data-scheme-value]' ).forEach( ( button ) => {
-			button.setAttribute( 'aria-pressed', button.getAttribute( 'data-scheme-value' ) === value ? 'true' : 'false' );
-		} );
-	}
-
-	const initial = storedScheme();
-	document.querySelectorAll( '[data-scheme-value]' ).forEach( ( button ) => {
-		button.setAttribute( 'aria-pressed', button.getAttribute( 'data-scheme-value' ) === initial ? 'true' : 'false' );
-		button.addEventListener( 'click', () => applyScheme( button.getAttribute( 'data-scheme-value' ) ) );
 	} );
 
 	/* Was this page helpful? Client-side only in the prototype. */
