@@ -29,7 +29,7 @@ foreach ( array( 'prev', 'next' ) as $dir ) {
 		esc_url( $node['url'] ),
 		'prev' === $dir ? icon( 'arrow-left', 16 ) : '',
 		'prev' === $dir ? esc_html__( 'Previous', 'wp-docs' ) : esc_html__( 'Next', 'wp-docs' ) . icon( 'arrow-right', 16 ),
-		esc_html( html_entity_decode( $node['title'], ENT_QUOTES, 'UTF-8' ) )
+		esc_html( decode( $node['title'] ) )
 	);
 }
 
@@ -38,7 +38,7 @@ $links   = array();
 if ( ! empty( $meta['edit_url'] ) ) {
 	$links[] = sprintf( '<a href="%1$s">%2$s%3$s</a>', esc_url( $meta['edit_url'] ), icon( 'edit', 16 ), esc_html__( 'Edit on GitHub', 'wp-docs' ) );
 }
-$links[] = sprintf( '<a href="%1$s">%2$s%3$s</a>', esc_url( ! empty( $meta['issue_url'] ) ? $meta['issue_url'] : issues_url() ), icon( 'flag', 16 ), esc_html__( 'Report a problem', 'wp-docs' ) );
+$links[] = sprintf( '<a href="%1$s">%2$s%3$s</a>', esc_url( report_url( $meta ) ), icon( 'flag', 16 ), esc_html__( 'Report a problem', 'wp-docs' ) );
 if ( ! empty( $meta['source_url'] ) ) {
 	$commit = $meta['commit'] ?? '';
 	$source = $commit ? preg_replace( '#/blob/[^/]+/#', '/blob/' . rawurlencode( $commit ) . '/', $meta['source_url'], 1 ) : $meta['source_url'];

@@ -204,7 +204,7 @@ final class Heading_Anchors {
 			}
 			$processor->set_attribute( 'id', $id );
 		} else {
-			self::advance( $text );
+			self::lookup( $text ); // Move the cursor past a heading that already had an id.
 		}
 		$processor->add_class( 'wp-docs-heading' );
 		$content = $processor->get_updated_html();
@@ -239,14 +239,5 @@ final class Heading_Anchors {
 			}
 		}
 		return heading_slug( $text );
-	}
-
-	/**
-	 * Move the cursor past a heading that already had an id.
-	 *
-	 * @param string $text Heading text.
-	 */
-	private static function advance( $text ) {
-		self::lookup( $text );
 	}
 }

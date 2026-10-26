@@ -16,13 +16,13 @@ if ( ! $post ) {
 }
 $meta   = page_meta( $post );
 $type   = $meta['type'] ?? '';
+$label  = type_label( $type );
 $status = $meta['status'] ?? '';
 $desc   = $meta['description'] ?? '';
 $toc    = toc_items( $post );
 
 $banner = '';
 if ( in_array( $status, array( 'placeholder', 'draft' ), true ) ) {
-	$issue  = ! empty( $meta['issue_url'] ) ? $meta['issue_url'] : issues_url();
 	$text   = 'placeholder' === $status
 		? __( 'This page is a placeholder. It describes something planned; nothing on it is shipped yet.', 'wp-docs' )
 		: __( 'This page is a draft. It may be incomplete or change before it is final.', 'wp-docs' );
@@ -31,16 +31,16 @@ if ( in_array( $status, array( 'placeholder', 'draft' ), true ) ) {
 		esc_attr( $status ),
 		icon( 'warning', 20 ),
 		esc_html( $text ),
-		esc_url( $issue ),
+		esc_url( report_url( $meta ) ),
 		esc_html__( 'Follow or discuss it on the issue tracker.', 'wp-docs' )
 	);
 }
 ?>
 <header class="wp-docs-page-header">
-	<?php if ( type_label( $type ) ) : ?>
-		<p class="wp-docs-eyebrow is-<?php echo esc_attr( $type ); ?>"><?php echo esc_html( type_label( $type ) ); ?></p>
+	<?php if ( $label ) : ?>
+		<p class="wp-docs-eyebrow is-<?php echo esc_attr( $type ); ?>"><?php echo esc_html( $label ); ?></p>
 	<?php endif; ?>
-	<h1 class="wp-docs-title"><?php echo esc_html( html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' ) ); ?></h1>
+	<h1 class="wp-docs-title"><?php echo esc_html( decode( get_the_title( $post ) ) ); ?></h1>
 	<?php if ( $desc ) : ?>
 		<p class="wp-docs-lede"><?php echo esc_html( $desc ); ?></p>
 	<?php endif; ?>

@@ -21,7 +21,7 @@ if ( ! $kids ) {
 $cards = '';
 foreach ( $kids as $node ) {
 	$grand = children( $node['id'] );
-	$title = esc_html( html_entity_decode( $node['title'], ENT_QUOTES, 'UTF-8' ) );
+	$title = esc_html( decode( $node['title'] ) );
 	$chips = type_chip( $node['type'] ) . status_chip( $node['status'] );
 	$desc  = $node['description'] ? '<p class="wp-docs-card__desc">' . esc_html( $node['description'] ) . '</p>' : '';
 	if ( ! $grand ) {
@@ -39,7 +39,7 @@ foreach ( $kids as $node ) {
 		$list .= sprintf(
 			'<li><a href="%1$s">%2$s</a>%3$s</li>',
 			esc_url( $g['url'] ),
-			esc_html( html_entity_decode( $g['title'], ENT_QUOTES, 'UTF-8' ) ),
+			esc_html( decode( $g['title'] ) ),
 			status_chip( $g['status'] )
 		);
 	}

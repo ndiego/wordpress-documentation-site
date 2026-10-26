@@ -29,7 +29,7 @@ foreach ( $crumbs as $crumb ) {
 	$items .= sprintf(
 		'<li><a href="%1$s">%2$s</a></li>',
 		esc_url( $crumb['url'] ),
-		esc_html( html_entity_decode( $crumb['title'], ENT_QUOTES, 'UTF-8' ) )
+		esc_html( decode( $crumb['title'] ) )
 	);
 }
 printf(

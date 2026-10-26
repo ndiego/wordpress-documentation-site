@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || die();
 
 $sections = array();
 foreach ( children( 0 ) as $node ) {
-	$sections[ $node['section'] ? $node['section'] : trim( $node['path'], '/' ) ] = html_entity_decode( $node['title'], ENT_QUOTES, 'UTF-8' );
+	$sections[ $node['section'] ? $node['section'] : trim( $node['path'], '/' ) ] = decode( $node['title'] );
 }
 $search_url = add_query_arg(
 	array(

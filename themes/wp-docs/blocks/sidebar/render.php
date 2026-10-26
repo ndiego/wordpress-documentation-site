@@ -29,47 +29,52 @@ if ( ! function_exists( __NAMESPACE__ . '\sidebar_items' ) ) {
 	 * @param int   $parent    Parent post ID.
 	 * @param int   $current   Current post ID.
 	 * @param array $open_path Ids on the current path.
-	 * @param int   $depth     Nesting depth (1 for a section's pages).
 	 * @return string
 	 */
-	function sidebar_items( $parent, $current, $open_path, $depth ) {
+	function sidebar_items( $parent, $current, $open_path ) {
 		$html = '';
 		foreach ( children( $parent ) as $node ) {
-			$id       = (int) $node['id'];
-			$kids     = children( $id );
-			$is_cur   = $id === $current;
-			$on_path  = isset( $open_path[ $id ] );
-			$classes  = array( 'wp-docs-nav__item' );
-			$classes[] = $kids ? 'has-children' : '';
-			$classes[] = $is_cur ? 'is-current' : '';
-			$classes[] = $on_path && ! $is_cur ? 'is-ancestor' : '';
-			$link      = sprintf(
+			$id      = (int) $node['id'];
+			$kids    = children( $id );
+			$is_cur  = $id === $current;
+			$on_path = isset( $open_path[ $id ] );
+			$classes = implode(
+				' ',
+				array_filter(
+					array(
+						'wp-docs-nav__item',
+						$kids ? 'has-children' : '',
+						$is_cur ? 'is-current' : '',
+						$on_path && ! $is_cur ? 'is-ancestor' : '',
+					)
+				)
+			);
+			$link    = sprintf(
 				'<a class="wp-docs-nav__link" href="%1$s"%2$s><span class="wp-docs-nav__title">%3$s</span>%4$s</a>',
 				esc_url( $node['url'] ),
 				$is_cur ? ' aria-current="page"' : '',
-				esc_html( html_entity_decode( $node['title'], ENT_QUOTES, 'UTF-8' ) ),
+				esc_html( decode( $node['title'] ) ),
 				'placeholder' === $node['status'] ? '<span class="wp-docs-nav__badge">' . esc_html__( 'Planned', 'wp-docs' ) . '</span>' : ''
 			);
 			if ( ! $kids ) {
-				$html .= sprintf( '<li class="%1$s">%2$s</li>', esc_attr( trim( implode( ' ', array_filter( $classes ) ) ) ), $link );
+				$html .= sprintf( '<li class="%1$s">%2$s</li>', esc_attr( $classes ), $link );
 				continue;
 			}
-			$open     = $on_path;
-			$list_id  = 'wp-docs-nav-' . $id;
-			$html    .= sprintf(
+			$list_id = 'wp-docs-nav-' . $id;
+			$html   .= sprintf(
 				'<li class="%1$s%2$s" data-nav-id="%3$d"%4$s><div class="wp-docs-nav__row">%5$s<button type="button" class="wp-docs-nav__toggle" aria-expanded="%6$s" aria-controls="%7$s"><span class="screen-reader-text">%8$s</span>%9$s</button></div><ul class="wp-docs-nav__list" id="%7$s"%10$s>%11$s</ul></li>',
-				esc_attr( trim( implode( ' ', array_filter( $classes ) ) ) ),
-				$open ? ' is-open' : '',
+				esc_attr( $classes ),
+				$on_path ? ' is-open' : '',
 				$id,
 				$on_path ? ' data-on-path' : '',
 				$link,
-				$open ? 'true' : 'false',
+				$on_path ? 'true' : 'false',
 				esc_attr( $list_id ),
 				/* translators: %s: page title. */
-				esc_html( sprintf( __( '%s pages', 'wp-docs' ), html_entity_decode( $node['title'], ENT_QUOTES, 'UTF-8' ) ) ),
+				esc_html( sprintf( __( '%s pages', 'wp-docs' ), decode( $node['title'] ) ) ),
 				icon( 'chevron-right', 16 ),
-				$open ? '' : ' hidden',
-				sidebar_items( $id, $current, $open_path, $depth + 1 )
+				$on_path ? '' : ' hidden',
+				sidebar_items( $id, $current, $open_path )
 			);
 		}
 		return $html;
@@ -81,8 +86,8 @@ foreach ( children( 0 ) as $section ) {
 	$id      = (int) $section['id'];
 	$is_cur  = $id === $current;
 	$list_id = 'wp-docs-nav-' . $id;
-	$title   = html_entity_decode( $section['title'], ENT_QUOTES, 'UTF-8' );
-	$items   = sidebar_items( $id, $current, $open_path, 1 );
+	$title   = decode( $section['title'] );
+	$items   = sidebar_items( $id, $current, $open_path );
 	$groups .= sprintf(
 		'<li class="wp-docs-nav__group is-open%1$s" data-nav-id="%2$d"%3$s><div class="wp-docs-nav__group-row"><a class="wp-docs-nav__group-label" href="%4$s"%5$s>%6$s</a>%7$s</div>%8$s</li>',
 		isset( $open_path[ $id ] ) ? ' is-on-path' : '',

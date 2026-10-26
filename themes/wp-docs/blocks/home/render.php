@@ -16,10 +16,6 @@ $tree = tree();
 $home = $tree['home'] ? get_post( $tree['home'] ) : null;
 $used = array();
 
-$plain = static function ( $text ) {
-	return esc_html( html_entity_decode( (string) $text, ENT_QUOTES, 'UTF-8' ) );
-};
-
 $promise = $home ? (string) get_post_meta( $home->ID, '_wp_docs_description', true ) : '';
 if ( '' === $promise ) {
 	$promise = __( 'Learn to build, write and run a WordPress site, one task at a time.', 'wp-docs' );
@@ -42,13 +38,13 @@ foreach ( $doors as $slug => $fallback ) {
 	$used[ $section['id'] ] = true;
 	$links                  = '';
 	foreach ( array_slice( children( $section['id'] ), 0, 3 ) as $node ) {
-		$links .= sprintf( '<li><a href="%1$s">%2$s</a></li>', esc_url( $node['url'] ), $plain( $node['title'] ) );
+		$links .= sprintf( '<li><a href="%1$s">%2$s</a></li>', esc_url( $node['url'] ), esc_html( decode( $node['title'] ) ) );
 	}
 	$door_html .= sprintf(
 		'<li class="wp-docs-door"><a class="wp-docs-door__main" href="%1$s"><span class="wp-docs-door__icon">%2$s</span><span class="wp-docs-door__title">%3$s</span><span class="wp-docs-door__desc">%4$s</span></a>%5$s</li>',
 		esc_url( $section['url'] ),
 		icon( section_icon( $slug ), 24 ),
-		$plain( $section['title'] ),
+		esc_html( decode( $section['title'] ) ),
 		esc_html( $section['description'] ? $section['description'] : $fallback ),
 		$links ? '<ul class="wp-docs-door__links">' . $links . '</ul>' : ''
 	);
@@ -65,7 +61,7 @@ if ( $start ) {
 			'<li><a href="%1$s"><span class="wp-docs-step__n" aria-hidden="true">%2$d</span><span class="wp-docs-step__title">%3$s</span></a></li>',
 			esc_url( $node['url'] ),
 			$i,
-			$plain( $node['title'] )
+			esc_html( decode( $node['title'] ) )
 		);
 	}
 }
@@ -79,7 +75,7 @@ if ( $ai ) {
 		$ai_html .= sprintf(
 			'<li class="wp-docs-card"><a class="wp-docs-card__link" href="%1$s"><span class="wp-docs-card__title">%2$s</span>%3$s<span class="wp-docs-card__chips">%4$s</span></a></li>',
 			esc_url( $node['url'] ),
-			$plain( $node['title'] ),
+			esc_html( decode( $node['title'] ) ),
 			$node['description'] ? '<span class="wp-docs-card__desc">' . esc_html( $node['description'] ) . '</span>' : '',
 			type_chip( $node['type'] ) . status_chip( $node['status'] )
 		);
@@ -97,7 +93,7 @@ if ( $blocks ) {
 		$blocks_html .= sprintf(
 			'<li><a class="wp-docs-pill" href="%1$s">%2$s%3$s</a></li>',
 			esc_url( $node['url'] ),
-			$plain( $node['title'] ),
+			esc_html( decode( $node['title'] ) ),
 			$count ? '<span class="wp-docs-pill__count">' . (int) $count . '</span>' : ''
 		);
 	}
@@ -122,7 +118,7 @@ foreach ( children( 0 ) as $node ) {
 	$more_html .= sprintf(
 		'<li class="wp-docs-card"><a class="wp-docs-card__link" href="%1$s"><span class="wp-docs-card__title">%2$s</span>%3$s</a></li>',
 		esc_url( $node['url'] ),
-		$plain( $node['title'] ),
+		esc_html( decode( $node['title'] ) ),
 		$node['description'] ? '<span class="wp-docs-card__desc">' . esc_html( $node['description'] ) . '</span>' : ''
 	);
 }
@@ -159,7 +155,7 @@ foreach ( children( 0 ) as $node ) {
 	<?php if ( $ai_html ) : ?>
 		<section class="wp-docs-home__section wp-docs-strip" aria-labelledby="wp-docs-home-ai">
 			<div class="wp-docs-strip__head">
-				<h2 id="wp-docs-home-ai"><?php echo $plain( $ai['title'] ); // phpcs:ignore WordPress.Security.EscapeOutput ?></h2>
+				<h2 id="wp-docs-home-ai"><?php echo esc_html( decode( $ai['title'] ) ); ?></h2>
 				<p><?php echo esc_html( $ai['description'] ? $ai['description'] : __( 'What AI can and cannot do with WordPress today, and what is planned.', 'wp-docs' ) ); ?> <a href="<?php echo esc_url( $ai['url'] ); ?>"><?php esc_html_e( 'Overview', 'wp-docs' ); ?></a></p>
 			</div>
 			<ul class="wp-docs-cards is-compact"><?php echo $ai_html; // phpcs:ignore WordPress.Security.EscapeOutput ?></ul>
@@ -169,7 +165,7 @@ foreach ( children( 0 ) as $node ) {
 	<?php if ( $blocks_html ) : ?>
 		<section class="wp-docs-home__section wp-docs-strip" aria-labelledby="wp-docs-home-blocks">
 			<div class="wp-docs-strip__head">
-				<h2 id="wp-docs-home-blocks"><?php echo $plain( $blocks['title'] ); // phpcs:ignore WordPress.Security.EscapeOutput ?></h2>
+				<h2 id="wp-docs-home-blocks"><?php echo esc_html( decode( $blocks['title'] ) ); ?></h2>
 				<p><?php echo esc_html( $blocks['description'] ? $blocks['description'] : __( 'Every core block: what it does and its settings.', 'wp-docs' ) ); ?></p>
 			</div>
 			<ul class="wp-docs-pills"><?php echo $blocks_html; // phpcs:ignore WordPress.Security.EscapeOutput ?></ul>
@@ -188,7 +184,7 @@ foreach ( children( 0 ) as $node ) {
 			<?php echo icon( 'archive', 18 ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
 			<span>
 				<?php esc_html_e( 'Using the Classic Editor, widgets, menus or the Customizer?', 'wp-docs' ); ?>
-				<a href="<?php echo esc_url( $classic['url'] ); ?>"><?php echo $plain( $classic['title'] ); // phpcs:ignore WordPress.Security.EscapeOutput ?></a>
+				<a href="<?php echo esc_url( $classic['url'] ); ?>"><?php echo esc_html( decode( $classic['title'] ) ); ?></a>
 			</span>
 		</p>
 	<?php endif; ?>

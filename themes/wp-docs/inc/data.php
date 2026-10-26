@@ -104,17 +104,6 @@ function tree() {
 }
 
 /**
- * A tree node by post ID, or null.
- *
- * @param int $id Post ID.
- * @return array|null
- */
-function node( $id ) {
-	$tree = tree();
-	return $tree['nodes'][ (int) $id ] ?? null;
-}
-
-/**
  * Child nodes of a post, in order.
  *
  * @param int $id Post ID (0 for the sections).
@@ -324,10 +313,11 @@ function repo_url() {
 }
 
 /**
- * Where to report problems when the page has no prefilled issue URL.
+ * Where to report a problem with a page: its prefilled issue URL, or a new issue in the content repository.
  *
+ * @param array $meta page_meta().
  * @return string
  */
-function issues_url() {
-	return trailingslashit( repo_url() ) . 'issues/new';
+function report_url( $meta ) {
+	return ! empty( $meta['issue_url'] ) ? $meta['issue_url'] : trailingslashit( repo_url() ) . 'issues/new';
 }

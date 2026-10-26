@@ -23,6 +23,16 @@ function queried_doc() {
 }
 
 /**
+ * A title or other stored text with its HTML entities decoded (escape it on output).
+ *
+ * @param string $text Text.
+ * @return string
+ */
+function decode( $text ) {
+	return html_entity_decode( (string) $text, ENT_QUOTES, 'UTF-8' );
+}
+
+/**
  * The "Copy page" split button and its menu.
  *
  * @param \WP_Post $post    Post.
@@ -71,7 +81,7 @@ function page_actions_markup( $post, $variant = 'rail' ) {
 		);
 	}
 	$secondary[] = array(
-		'href'  => ! empty( $meta['issue_url'] ) ? $meta['issue_url'] : issues_url(),
+		'href'  => report_url( $meta ),
 		'icon'  => 'flag',
 		'label' => __( 'Report a problem', 'wp-docs' ),
 	);

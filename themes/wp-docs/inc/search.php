@@ -105,7 +105,7 @@ final class Search {
 					}
 				}
 				$records[] = array(
-					'title'       => html_entity_decode( $node['title'], ENT_QUOTES, 'UTF-8' ),
+					'title'       => decode( $node['title'] ),
 					'path'        => $node['path'],
 					'url'         => $node['url'],
 					'section'     => $node['section'],
