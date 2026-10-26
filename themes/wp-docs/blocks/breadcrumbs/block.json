@@ -1,0 +1,12 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wp-docs/breadcrumbs",
+	"title": "Breadcrumbs",
+	"category": "theme",
+	"description": "The ancestors of the current page.",
+	"textdomain": "wp-docs",
+	"attributes": {},
+	"supports": { "html": false, "inserter": false, "reusable": false, "lock": false },
+	"render": "file:./render.php"
+}

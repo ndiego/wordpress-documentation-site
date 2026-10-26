@@ -1,0 +1,12 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wp-docs/sidebar",
+	"title": "Documentation sidebar",
+	"category": "theme",
+	"description": "The documentation tree with the current page open.",
+	"textdomain": "wp-docs",
+	"attributes": { "drawerOnly": { "type": "boolean", "default": false } },
+	"supports": { "html": false, "inserter": false, "reusable": false, "lock": false },
+	"render": "file:./render.php"
+}

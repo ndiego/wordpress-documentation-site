@@ -1,0 +1,12 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wp-docs/page-actions",
+	"title": "Page actions",
+	"category": "theme",
+	"description": "Copy page as Markdown, with a menu of agent and GitHub links.",
+	"textdomain": "wp-docs",
+	"attributes": {},
+	"supports": { "html": false, "inserter": false, "reusable": false, "lock": false },
+	"render": "file:./render.php"
+}

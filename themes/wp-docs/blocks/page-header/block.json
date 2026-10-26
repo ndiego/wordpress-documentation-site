@@ -1,0 +1,12 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wp-docs/page-header",
+	"title": "Page header",
+	"category": "theme",
+	"description": "Type eyebrow, title, description and status banner; below 1100px also the page actions and the table of contents.",
+	"textdomain": "wp-docs",
+	"attributes": {},
+	"supports": { "html": false, "inserter": false, "reusable": false, "lock": false },
+	"render": "file:./render.php"
+}

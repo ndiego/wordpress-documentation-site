@@ -1,0 +1,12 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wp-docs/home",
+	"title": "Documentation home",
+	"category": "theme",
+	"description": "The hero, the four doors and the strips, built from the tree.",
+	"textdomain": "wp-docs",
+	"attributes": {},
+	"supports": { "html": false, "inserter": false, "reusable": false, "lock": false },
+	"render": "file:./render.php"
+}

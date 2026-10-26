@@ -1,0 +1,300 @@
+/**
+ * ⌘K search palette: the trigger in the docs bar and the dialog. Adapted from the WordPress.org Docs hub
+ * theme (wporg-docs-2026); colors come from the theme's tokens.
+ */
+
+.wp-docs-search-trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	box-sizing: border-box;
+	width: 260px;
+	height: 36px;
+	margin: 0;
+	padding: 0 6px 0 10px;
+	border: 1px solid var(--wp-docs-border);
+	border-radius: var(--wp-docs-radius);
+	background: var(--wp-docs-bg-subtle);
+	color: var(--wp-docs-fg-muted);
+	font-family: inherit;
+	font-size: 14px;
+	line-height: 20px;
+	text-align: start;
+	cursor: pointer;
+	transition: border-color var(--wp-docs-ease), color var(--wp-docs-ease);
+}
+
+.wp-docs-search-trigger:hover {
+	border-color: var(--wp-docs-border-strong);
+	color: var(--wp-docs-fg);
+}
+
+.wp-docs-search-trigger__label {
+	flex: 1 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.wp-docs-search-trigger kbd {
+	font-size: 11px;
+}
+
+/* The dialog. */
+.wp-docs-search {
+	box-sizing: border-box;
+	width: min(640px, calc(100vw - 32px));
+	max-width: none;
+	max-height: min(560px, calc(100vh - 96px));
+	margin: 12vh auto 0;
+	padding: 0;
+	border: 1px solid var(--wp-docs-border);
+	border-radius: 12px;
+	background: var(--wp-docs-bg);
+	color: var(--wp-docs-fg);
+	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.08);
+	font-family: var(--wp-docs-font);
+	overflow: hidden;
+}
+
+.wp-docs-search::backdrop {
+	background: var(--wp-docs-backdrop);
+	-webkit-backdrop-filter: blur(2px);
+	backdrop-filter: blur(2px);
+}
+
+.wp-docs-search[open] {
+	display: flex;
+	flex-direction: column;
+}
+
+html.has-search-open {
+	overflow: hidden;
+}
+
+.wp-docs-search__form {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	padding: 0 12px 0 16px;
+	border-bottom: 1px solid var(--wp-docs-border);
+}
+
+.wp-docs-search__form > svg {
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	fill: var(--wp-docs-fg-muted);
+}
+
+.wp-docs-search__input {
+	flex: 1 1 auto;
+	min-width: 0;
+	height: 56px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	font-size: 17px;
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+.wp-docs-search__input::placeholder {
+	color: var(--wp-docs-fg-muted);
+}
+
+.wp-docs-search__input::-webkit-search-cancel-button {
+	display: none;
+}
+
+.wp-docs-search__input:focus,
+.wp-docs-search__input:focus-visible {
+	outline: none;
+	box-shadow: none;
+}
+
+.wp-docs-search__close {
+	display: inline-flex;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+
+.wp-docs-search__results {
+	flex: 1 1 auto;
+	min-height: 120px;
+	margin: 0;
+	padding: 8px;
+	list-style: none;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.wp-docs-search__group {
+	margin: 10px 10px 4px;
+	color: var(--wp-docs-fg-muted);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 16px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.wp-docs-search__group:first-child {
+	margin-top: 4px;
+}
+
+.wp-docs-search__item {
+	margin: 0;
+}
+
+.wp-docs-search__item a {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 10px;
+	border-radius: var(--wp-docs-radius);
+	color: inherit;
+	text-decoration: none;
+}
+
+.wp-docs-search__item.is-active a {
+	background: var(--wp-docs-accent-tint);
+}
+
+.wp-docs-search__item svg {
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+	fill: var(--wp-docs-fg-muted);
+}
+
+.wp-docs-search__item.is-active svg {
+	fill: var(--wp-docs-accent);
+}
+
+.wp-docs-search__body {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.wp-docs-search__title {
+	color: var(--wp-docs-fg);
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 20px;
+}
+
+.wp-docs-search__meta,
+.wp-docs-search__heading,
+.wp-docs-search__desc {
+	overflow: hidden;
+	color: var(--wp-docs-fg-muted);
+	font-size: 12px;
+	line-height: 18px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.wp-docs-search__heading {
+	color: var(--wp-docs-fg);
+}
+
+.wp-docs-search__title mark,
+.wp-docs-search__meta mark,
+.wp-docs-search__heading mark,
+.wp-docs-search__desc mark {
+	background: transparent;
+	color: var(--wp-docs-accent);
+	font-weight: 600;
+}
+
+.wp-docs-search .sep {
+	margin: 0 5px;
+	opacity: 0.6;
+}
+
+.wp-docs-search__heading .sep {
+	margin-left: 0;
+}
+
+.wp-docs-search__enter {
+	flex-shrink: 0;
+	visibility: hidden;
+	color: var(--wp-docs-fg-muted);
+	font-size: 13px;
+}
+
+.wp-docs-search__item.is-active .wp-docs-search__enter {
+	visibility: visible;
+}
+
+.wp-docs-search__empty {
+	padding: 40px 16px;
+	color: var(--wp-docs-fg-muted);
+	font-size: 14px;
+	text-align: center;
+}
+
+.wp-docs-search__footer {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 8px 16px;
+	padding: 10px 16px;
+	border-top: 1px solid var(--wp-docs-border);
+	background: var(--wp-docs-bg-subtle);
+	color: var(--wp-docs-fg-muted);
+	font-size: 12px;
+}
+
+.wp-docs-search__hint {
+	display: inline-flex;
+	gap: 16px;
+}
+
+.wp-docs-search__hint span {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.wp-docs-search kbd {
+	font-size: 11px;
+}
+
+@media (max-width: 1099px) {
+	.wp-docs-search-trigger {
+		width: 200px;
+	}
+}
+
+@media (max-width: 781px) {
+	.wp-docs-search-trigger {
+		width: 36px;
+		padding: 0;
+		justify-content: center;
+		border-color: transparent;
+		background: transparent;
+	}
+
+	.wp-docs-search-trigger__label,
+	.wp-docs-search-trigger kbd,
+	.wp-docs-search__hint {
+		display: none;
+	}
+
+	.wp-docs-search {
+		width: calc(100vw - 16px);
+		max-height: calc(100vh - 16px);
+		margin-top: 8px;
+	}
+}

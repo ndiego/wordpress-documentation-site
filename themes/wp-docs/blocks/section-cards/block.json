@@ -1,0 +1,12 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wp-docs/section-cards",
+	"title": "Section cards",
+	"category": "theme",
+	"description": "The children of the current page as cards.",
+	"textdomain": "wp-docs",
+	"attributes": { "heading": { "type": "string", "default": "In this section" } },
+	"supports": { "html": false, "inserter": false, "reusable": false, "lock": false },
+	"render": "file:./render.php"
+}

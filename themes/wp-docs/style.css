@@ -1,9 +1,9 @@
 /*
 Theme Name: WordPress Documentation
 Theme URI: https://github.com/ndiego/wordpress-documentation-site
-Description: The block theme for the WordPress documentation site: the WordPress.org global header and footer with a modern documentation layout.
+Description: The block theme for the WordPress documentation site: the WordPress.org global header and footer with a modern documentation layout. Standalone, no build step. The styles live in assets/style.css.
 Author: WordPress.org
-Version: 0.1.0
+Version: 0.2.0
 Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 8.1

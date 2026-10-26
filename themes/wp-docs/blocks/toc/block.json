@@ -1,0 +1,12 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wp-docs/toc",
+	"title": "Table of contents",
+	"category": "theme",
+	"description": "H2 and H3 of the content with scroll-spy.",
+	"textdomain": "wp-docs",
+	"attributes": { "title": { "type": "string", "default": "On this page" } },
+	"supports": { "html": false, "inserter": false, "reusable": false, "lock": false },
+	"render": "file:./render.php"
+}

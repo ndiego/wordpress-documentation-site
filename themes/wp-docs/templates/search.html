@@ -1,0 +1,49 @@
+<!-- wp:template-part {"slug":"header","tagName":"div","className":"wp-docs-site-header"} /-->
+
+<!-- wp:group {"tagName":"div","className":"wp-docs-layout is-listing","layout":{"type":"default"}} -->
+<div class="wp-block-group wp-docs-layout is-listing">
+<!-- wp:wp-docs/sidebar /-->
+
+<!-- wp:group {"tagName":"main","className":"wp-docs-main","layout":{"type":"default"}} -->
+<main class="wp-block-group wp-docs-main">
+<!-- wp:group {"tagName":"header","className":"wp-docs-page-header","layout":{"type":"default"}} -->
+<header class="wp-block-group wp-docs-page-header">
+<!-- wp:paragraph {"className":"wp-docs-eyebrow"} -->
+<p class="wp-docs-eyebrow">Search</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:query-title {"type":"search","className":"wp-docs-title"} /-->
+
+<!-- wp:search {"label":"Search documentation","showLabel":false,"placeholder":"Search documentation","buttonText":"Search","className":"wp-docs-search-form","query":{"post_type":"wp-docs"}} /-->
+</header>
+<!-- /wp:group -->
+
+<!-- wp:query {"queryId":1,"query":{"inherit":true,"perPage":20},"className":"wp-docs-results"} -->
+<div class="wp-block-query wp-docs-results">
+<!-- wp:post-template {"className":"wp-docs-results__list"} -->
+<!-- wp:post-title {"isLink":true,"level":2,"className":"wp-docs-results__title"} /-->
+
+<!-- wp:post-excerpt {"excerptLength":36,"className":"wp-docs-results__excerpt"} /-->
+<!-- /wp:post-template -->
+
+<!-- wp:query-pagination {"className":"wp-docs-results__pagination","layout":{"type":"flex","justifyContent":"space-between"}} -->
+<!-- wp:query-pagination-previous /-->
+
+<!-- wp:query-pagination-numbers /-->
+
+<!-- wp:query-pagination-next /-->
+<!-- /wp:query-pagination -->
+
+<!-- wp:query-no-results -->
+<!-- wp:paragraph {"className":"wp-docs-results__empty"} -->
+<p class="wp-docs-results__empty">Nothing in the documentation matches that search. Try fewer or different words, or browse the sections in the sidebar.</p>
+<!-- /wp:paragraph -->
+<!-- /wp:query-no-results -->
+</div>
+<!-- /wp:query -->
+</main>
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer","tagName":"div","className":"wp-docs-site-footer"} /-->

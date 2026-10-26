@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 /**
- * Screenshots of the local site: the /docs/ home, a section page and a leaf page, at 1400 and 390
- * pixels wide, full page, into site/tools/shots/ (gitignored).
+ * Screenshots of the local site for design review, into tools/shots/ (gitignored).
  *
- *   npm run shots                       # default pages
- *   BASE_URL=http://localhost:8888 SECTION=/docs/themes/ LEAF=/docs/themes/x/ npm run shots
+ * Scenes: the home, a section landing, a tutorial page with the right rail (top of the page and the full
+ * page), the search palette open with a query, the mobile drawer open, and the dark scheme, at 1440 and
+ * 390 pixels wide.
+ *
+ *   npm run shots                              # every scene
+ *   ONLY=home,palette npm run shots            # some scenes (names below)
+ *   BASE_URL=http://localhost:8889 SECTION=/docs/write/ LEAF=/docs/write/create-a-post/ npm run shots
  *   CHROMIUM_PATH=/path/to/chrome-headless-shell npm run shots
  *
  * Browser: Playwright's own when installed (`npx playwright install chromium-headless-shell`),
@@ -19,14 +23,16 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname( fileURLToPath( import.meta.url ) );
 const outDir = join( here, 'shots' );
-const base = ( process.env.BASE_URL || 'http://localhost:8888' ).replace( /\/$/, '' );
+const base = ( process.env.BASE_URL || 'http://localhost:8889' ).replace( /\/$/, '' );
 
-const pages = {
+const paths = {
 	home: process.env.HOME_PATH || '/docs/',
-	section: process.env.SECTION || '/docs/get-started/sample-install/',
-	leaf: process.env.LEAF || '/docs/get-started/sample-install/sample-install-locally/',
+	section: process.env.SECTION || '/docs/get-started/',
+	leaf: process.env.LEAF || '/docs/write/create-a-post/',
+	query: process.env.QUERY || 'publish',
 };
-const widths = [ 1400, 390 ];
+const only = ( process.env.ONLY || '' ).split( ',' ).map( ( s ) => s.trim() ).filter( Boolean );
+const widths = [ 1440, 390 ];
 
 function findCachedHeadlessShell() {
 	const cache = join( homedir(), 'Library/Caches/ms-playwright' );
@@ -63,19 +69,97 @@ async function launch() {
 	}
 }
 
+/**
+ * Each scene: a name, the widths it runs at, and what to do before the screenshot.
+ * `scheme` sets the stored color scheme before the page loads; `full` takes the whole page.
+ */
+const scenes = [
+	{ name: 'home', path: paths.home, full: true },
+	{ name: 'section', path: paths.section, full: true },
+	{ name: 'leaf', path: paths.leaf },
+	{ name: 'leaf-full', path: paths.leaf, full: true },
+	{
+		name: 'palette',
+		path: paths.leaf,
+		async act( page ) {
+			await page.keyboard.press( 'Control+k' );
+			await page.waitForSelector( 'dialog.wp-docs-search[open]' );
+			await page.keyboard.type( paths.query, { delay: 20 } );
+			await page.waitForSelector( '.wp-docs-search__item' );
+		},
+	},
+	{
+		name: 'drawer',
+		path: paths.leaf,
+		widths: [ 390 ],
+		async act( page ) {
+			await page.click( '[data-wp-docs-menu]' );
+			await page.waitForTimeout( 300 );
+		},
+	},
+	{
+		name: 'menu',
+		path: paths.leaf,
+		widths: [ 1440 ],
+		async act( page ) {
+			await page.click( '.wp-docs-rail .wp-docs-actions__more' );
+			await page.waitForTimeout( 100 );
+		},
+	},
+	{ name: 'dark-home', path: paths.home, scheme: 'dark' },
+	{ name: 'dark-section', path: paths.section, scheme: 'dark', full: true },
+	{ name: 'dark-leaf', path: paths.leaf, scheme: 'dark' },
+	{
+		name: 'dark-palette',
+		path: paths.leaf,
+		scheme: 'dark',
+		widths: [ 1440 ],
+		async act( page ) {
+			await page.keyboard.press( 'Control+k' );
+			await page.waitForSelector( 'dialog.wp-docs-search[open]' );
+			await page.keyboard.type( paths.query, { delay: 20 } );
+			await page.waitForSelector( '.wp-docs-search__item' );
+		},
+	},
+];
+
 mkdirSync( outDir, { recursive: true } );
 const browser = await launch();
 
 for ( const width of widths ) {
-	const context = await browser.newContext( { viewport: { width, height: 900 }, deviceScaleFactor: 1 } );
-	const page = await context.newPage();
-	for ( const [ name, path ] of Object.entries( pages ) ) {
-		const response = await page.goto( base + path, { waitUntil: 'networkidle' } );
-		const file = join( outDir, `${ name }-${ width }.png` );
-		await page.screenshot( { path: file, fullPage: true } );
-		console.log( `${ response?.status() } ${ path } -> ${ file }` );
+	for ( const scene of scenes ) {
+		if ( only.length && ! only.includes( scene.name ) ) {
+			continue;
+		}
+		if ( scene.widths && ! scene.widths.includes( width ) ) {
+			continue;
+		}
+		const context = await browser.newContext( {
+			viewport: { width, height: width < 600 ? 844 : 900 },
+			deviceScaleFactor: 1,
+			colorScheme: 'light',
+			reducedMotion: 'reduce',
+		} );
+		if ( scene.scheme ) {
+			await context.addInitScript( ( value ) => {
+				try {
+					window.localStorage.setItem( 'wp-docs-scheme', value );
+				} catch ( e ) {}
+			}, scene.scheme );
+		}
+		const page = await context.newPage();
+		const errors = [];
+		page.on( 'pageerror', ( error ) => errors.push( error.message ) );
+		page.on( 'response', ( r ) => r.status() >= 400 && errors.push( `${ r.status() } ${ r.url() }` ) );
+		const response = await page.goto( base + scene.path, { waitUntil: 'networkidle' } );
+		if ( scene.act ) {
+			await scene.act( page );
+		}
+		const file = join( outDir, `${ scene.name }-${ width }.png` );
+		await page.screenshot( { path: file, fullPage: Boolean( scene.full ) } );
+		console.log( `${ response?.status() } ${ scene.path } -> ${ file }${ errors.length ? `\n  errors: ${ errors.join( ' | ' ) }` : '' }` );
+		await context.close();
 	}
-	await context.close();
 }
 
 await browser.close();
