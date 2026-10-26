@@ -14,6 +14,8 @@ None. The vendored files are unchanged.
 - The copies are loaded only when the real `wporg-mu-plugins` functions are not defined, and the filter
   `wp_docs_load_global_header_footer` can turn them off.
 - `wporg-global-fonts` is enqueued on the front end.
+- The header and footer REST routes (`/wp-json/global-header-footer/v1/...`, used by Trac, the Codex and
+  Planet) are not registered: they rewrite asset URLs to s.w.org paths that do not exist for this copy.
 - The `wp_head` preconnect to fonts.googleapis.com and fonts.gstatic.com is removed (the block theme does not
   load Open Sans).
 - `$_SERVER['HTTP_HOST']` and `$_SERVER['REQUEST_URI']` are filled from the home URL before the header renders

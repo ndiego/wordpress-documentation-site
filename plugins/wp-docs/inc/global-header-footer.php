@@ -19,6 +19,8 @@
  *   block theme does not load Open Sans, so the preconnect is removed: no third-party connection.
  * - `set_current_item_class()` reads $_SERVER['HTTP_HOST'] and $_SERVER['REQUEST_URI'], which are missing
  *   when a page is rendered from WP-CLI; they are filled from the home URL first.
+ * - The vendored REST routes (`global-header-footer/v1/header` and `/footer`, for Trac, the Codex and
+ *   Planet) are not registered: they rewrite asset URLs to s.w.org paths that do not exist for this copy.
  * - The admin bar changes in `admin-bar.php` only run on the front end (`is_admin()` returns early), and
  *   only for logged-in users the bar is shown at all, so wp-admin is untouched.
  *
@@ -52,6 +54,9 @@ function load() {
 	if ( ! function_exists( HEADER_NS . '\\register_block_types' ) ) {
 		require_once dirname( __DIR__ ) . '/vendor/global-header-footer/blocks.php';
 		remove_action( 'wp_head', HEADER_NS . '\\preload_google_fonts' );
+		// The header and footer REST endpoints serve other software (Trac, the Codex) with assets rewritten
+		// to s.w.org paths that do not exist for this copy; this site does not need them.
+		remove_action( 'rest_api_init', HEADER_NS . '\\register_routes' );
 	}
 
 	add_action( 'wp_enqueue_scripts', __NAMESPACE__ . '\\enqueue_fonts' );
