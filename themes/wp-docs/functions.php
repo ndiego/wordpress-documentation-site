@@ -25,6 +25,7 @@ add_action( 'init', __NAMESPACE__ . '\register_blocks' );
 add_action( 'wp_enqueue_scripts', __NAMESPACE__ . '\enqueue_assets' );
 add_action( 'wp_enqueue_scripts', __NAMESPACE__ . '\dequeue_assets', 100 );
 add_action( 'wp_head', __NAMESPACE__ . '\scheme_script', 0 );
+add_action( 'wp_head', __NAMESPACE__ . '\meta_description', 1 );
 add_filter( 'pre_render_block', __NAMESPACE__ . '\global_header_footer_fallback', 10, 2 );
 add_filter( 'render_block_core/group', __NAMESPACE__ . '\label_rail', 10, 2 );
 add_filter( 'render_block_core/code', __NAMESPACE__ . '\code_block', 10, 2 );
@@ -64,7 +65,6 @@ function enqueue_assets() {
 		$deps[] = 'wporg-global-fonts';
 	}
 	wp_enqueue_style( 'wp-docs', $uri . 'style.css', $deps, $version( 'style.css' ) );
-	wp_enqueue_style( 'wp-docs-search-palette', $uri . 'search-palette.css', array( 'wp-docs' ), $version( 'search-palette.css' ) );
 
 	$args = array(
 		'in_footer' => true,
@@ -73,6 +73,8 @@ function enqueue_assets() {
 	wp_enqueue_script( 'wp-docs-sidebar', $uri . 'sidebar.js', array(), $version( 'sidebar.js' ), $args );
 	wp_enqueue_script( 'wp-docs-page-actions', $uri . 'page-actions.js', array(), $version( 'page-actions.js' ), $args );
 	wp_enqueue_script( 'wp-docs-search-palette', $uri . 'search-palette.js', array(), $version( 'search-palette.js' ), $args );
+	// The palette loads its own stylesheet when it is first needed (see search-palette.js).
+	wp_add_inline_script( 'wp-docs-search-palette', 'window.wpDocsPaletteCss=' . wp_json_encode( $uri . 'search-palette.css?ver=' . $version( 'search-palette.css' ) ) . ';', 'before' );
 	if ( is_singular( POST_TYPE ) ) {
 		wp_enqueue_script( 'wp-docs-toc', $uri . 'toc.js', array(), $version( 'toc.js' ), $args );
 	}
@@ -276,4 +278,22 @@ function protect_code_shortcodes( $content ) {
 function inline_code_shortcodes( $content, $block ) {
 	$names = array( 'core/paragraph', 'core/list-item', 'core/list', 'core/table', 'core/heading', 'core/html', 'core/details' );
 	return in_array( $block['blockName'] ?? '', $names, true ) ? protect_code_shortcodes( $content ) : $content;
+}
+
+/**
+ * A meta description from the page's front matter description (the home's on / and /docs/).
+ */
+function meta_description() {
+	$text = '';
+	$post = queried_doc();
+	if ( $post ) {
+		$meta = page_meta( $post );
+		$text = $meta['description'] ?? '';
+	} elseif ( is_front_page() || is_post_type_archive( POST_TYPE ) ) {
+		$tree = tree();
+		$text = $tree['home'] ? (string) get_post_meta( $tree['home'], '_wp_docs_description', true ) : '';
+	}
+	if ( '' !== $text ) {
+		printf( "<meta name=\"description\" content=\"%s\">\n", esc_attr( wp_strip_all_tags( $text ) ) );
+	}
 }

@@ -104,7 +104,29 @@
 		} );
 	}
 
+	let cssReady = null;
+	function loadCss() {
+		if ( ! cssReady ) {
+			cssReady = new Promise( ( resolve ) => {
+				if ( ! window.wpDocsPaletteCss ) {
+					resolve();
+					return;
+				}
+				const link = document.createElement( 'link' );
+				link.id = 'wp-docs-search-palette-css';
+				link.rel = 'stylesheet';
+				link.href = window.wpDocsPaletteCss;
+				link.onload = link.onerror = () => resolve();
+				document.head.appendChild( link );
+				// Never hold the palette back for long.
+				window.setTimeout( resolve, 400 );
+			} );
+		}
+		return cssReady;
+	}
+
 	function build() {
+		loadCss();
 		dialog = document.createElement( 'dialog' );
 		dialog.className = 'wp-docs-search';
 		dialog.setAttribute( 'aria-label', 'Search documentation' );
@@ -202,6 +224,10 @@
 		if ( ! dialog ) {
 			build();
 		}
+		cssReady.then( () => show( query ) );
+	}
+
+	function show( query ) {
 		if ( ! dialog.open ) {
 			document.documentElement.classList.add( 'has-search-open' );
 			dialog.showModal();
@@ -450,6 +476,9 @@
 
 	// Warm the index when the browser is idle, so the first search is instant.
 	if ( 'requestIdleCallback' in window ) {
-		window.requestIdleCallback( () => load(), { timeout: 5000 } );
+		window.requestIdleCallback( () => {
+			loadCss();
+			load();
+		}, { timeout: 5000 } );
 	}
 } )();

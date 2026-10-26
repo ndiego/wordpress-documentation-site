@@ -1,44 +1,8 @@
 /**
- * ⌘K search palette: the trigger in the docs bar and the dialog. Adapted from the WordPress.org Docs hub
- * theme (wporg-docs-2026); colors come from the theme's tokens.
+ * ⌘K search palette dialog. Adapted from the WordPress.org Docs hub theme (wporg-docs-2026); colors come
+ * from the theme's tokens. search-palette.js loads this file when the browser is idle or on first open,
+ * so it never blocks rendering. The trigger's styles are in style.css.
  */
-
-.wp-docs-search-trigger {
-	display: inline-flex;
-	align-items: center;
-	gap: 8px;
-	box-sizing: border-box;
-	width: 260px;
-	height: 36px;
-	margin: 0;
-	padding: 0 6px 0 10px;
-	border: 1px solid var(--wp-docs-border);
-	border-radius: var(--wp-docs-radius);
-	background: var(--wp-docs-bg-subtle);
-	color: var(--wp-docs-fg-muted);
-	font-family: inherit;
-	font-size: 14px;
-	line-height: 20px;
-	text-align: start;
-	cursor: pointer;
-	transition: border-color var(--wp-docs-ease), color var(--wp-docs-ease);
-}
-
-.wp-docs-search-trigger:hover {
-	border-color: var(--wp-docs-border-strong);
-	color: var(--wp-docs-fg);
-}
-
-.wp-docs-search-trigger__label {
-	flex: 1 1 auto;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.wp-docs-search-trigger kbd {
-	font-size: 11px;
-}
 
 /* The dialog. */
 .wp-docs-search {
@@ -271,23 +235,7 @@ html.has-search-open {
 	font-size: 11px;
 }
 
-@media (max-width: 1099px) {
-	.wp-docs-search-trigger {
-		width: 200px;
-	}
-}
-
 @media (max-width: 781px) {
-	.wp-docs-search-trigger {
-		width: 36px;
-		padding: 0;
-		justify-content: center;
-		border-color: transparent;
-		background: transparent;
-	}
-
-	.wp-docs-search-trigger__label,
-	.wp-docs-search-trigger kbd,
 	.wp-docs-search__hint {
 		display: none;
 	}

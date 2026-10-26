@@ -43,7 +43,7 @@ $search_url = add_query_arg(
 				data-fallback-url="<?php echo esc_url( Search::fallback_url() ); ?>"
 				data-search-url="<?php echo esc_url( $search_url ); ?>"
 				data-sections="<?php echo esc_attr( wp_json_encode( $sections ) ); ?>"
-				aria-label="<?php esc_attr_e( 'Search documentation', 'wp-docs' ); ?>">
+				aria-haspopup="dialog">
 				<?php echo icon( 'search', 18 ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
 				<span class="wp-docs-search-trigger__label"><?php esc_html_e( 'Search documentation', 'wp-docs' ); ?></span>
 				<kbd aria-hidden="true">⌘K</kbd>
