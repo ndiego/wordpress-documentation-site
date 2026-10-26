@@ -4,10 +4,20 @@
 |---|---|---|
 | `global-header-footer/` | [WordPress/wporg-mu-plugins](https://github.com/WordPress/wporg-mu-plugins) `mu-plugins/blocks/global-header-footer/` | PHP, `build/`, `images/`, `js/`; `src/` and `postcss/` dropped |
 | `global-fonts/` | [WordPress/wporg-mu-plugins](https://github.com/WordPress/wporg-mu-plugins) `mu-plugins/global-fonts/` | `index.php`, `helper-functions.php`, `style.css`, `Inter/`, `IBMPlexMono/`; the other font families are not vendored |
+| `notice/` | [WordPress/wporg-mu-plugins](https://github.com/WordPress/wporg-mu-plugins) `mu-plugins/blocks/notice/` at commit `79022114a12011350fe992acd0b48802ed80da12` (2026-10-12, from the ndiego fork's checkout) | `build/` only (`block.json`, `index.js`, `index.asset.php`, `style.css`, `style-rtl.css`); `index.php` (shortcode mapping), `src/` and `postcss/` dropped |
 
 ## Patches
 
 - `global-fonts/style.css`: the three `@import` lines for the Noto Serif JP, KR and SC stylesheets are removed, because those families (54 MB) are not vendored and the imports returned 404 on every page and blocked rendering. Everything else is unchanged.
+
+## Shims for `notice/` (in `../inc/editor.php`)
+
+- Registered on `init` only when `wporg/notice` is not already registered (on WordPress.org the real one is).
+- A `register_block_type_args` filter removes `supports.align`, `supports.spacing` and `supports.typography`
+  and sets `customClassName` and `html` to false, so a save never carries style attributes the Markdown sync
+  cannot write back.
+- The theme dequeues and deregisters `wporg-notice-style` on the front end (it styles the notice markup
+  itself); the stylesheet still loads in the editor.
 
 ## Shims (in `../inc/global-header-footer.php`, not in the vendored files)
 

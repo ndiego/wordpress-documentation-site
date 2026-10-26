@@ -82,11 +82,15 @@ function enqueue_assets() {
 
 /**
  * Leave out what the theme replaces: code-syntax-block's Prism colors (the theme draws tokens from its
- * own custom properties) and the classic theme styles.
+ * own custom properties), the classic theme styles, and the notice block's own stylesheet (the theme
+ * styles `.wp-block-wporg-notice` itself; the block's stylesheet stays in the editor). The notice style
+ * is deregistered as well, because a block theme enqueues block styles while rendering, after this runs.
  */
 function dequeue_assets() {
 	wp_dequeue_style( 'mkaz-code-syntax-prism-css' );
 	wp_dequeue_style( 'classic-theme-styles' );
+	wp_dequeue_style( 'wporg-notice-style' );
+	wp_deregister_style( 'wporg-notice-style' );
 }
 
 /**

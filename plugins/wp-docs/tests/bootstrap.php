@@ -68,3 +68,6 @@ require_once "$plugin/inc/transforms/links.php";
 require_once "$plugin/inc/transforms/images.php";
 require_once "$plugin/inc/transforms/blocks.php";
 require_once "$plugin/inc/pipeline.php";
+require_once "$plugin/inc/transforms/chunks.php";
+require_once "$plugin/inc/transforms/markdown-out.php";
+require_once "$plugin/inc/transforms/reverse.php";

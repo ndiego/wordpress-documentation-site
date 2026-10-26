@@ -129,23 +129,39 @@ function convert_file( string $raw, array $options = array(), array &$report = a
 	// The stock importer's own strip (line 483) runs on the already-stripped body.
 	$markdown = preg_replace( '#^---(.+)---#Us', '', $markdown );
 	$markdown = trim( $markdown );
-	$markdown = before_parse( $markdown, $options );
 
 	$title = null;
 	if ( preg_match( '/^#\s(.+)/', $markdown, $matches ) ) {
 		$title    = $matches[1];
 		$markdown = preg_replace( '/^#\s(.+)/', '', $markdown );
 	}
-	$markdown = trim( $markdown );
 
-	$parser                      = new \WPCom_GHF_Markdown_Parser();
-	$parser->preserve_shortcodes = false;
-	$html                        = $parser->transform( $markdown );
-
-	$html = after_parse( $html, $options, $report );
+	$html = convert_body( $markdown, $options, $report );
 
 	$report['front_matter'] = $front_matter;
 	$report['title']        = $title;
 
 	return $html;
+}
+
+/**
+ * The conversion of a Markdown body (no front matter, no title line): the Markdown stage, Jetpack's
+ * parser, the HTML stage. The reverse sync converts one chunk of a page at a time with this.
+ *
+ * @param string $markdown Markdown.
+ * @param array  $options  Options.
+ * @param array  $report   Receives the report from after_parse().
+ * @return string Post content.
+ */
+function convert_body( string $markdown, array $options = array(), array &$report = array() ): string {
+	if ( ! class_exists( 'WPCom_GHF_Markdown_Parser' ) && defined( 'JETPACK__PLUGIN_DIR' ) ) {
+		include_once JETPACK__PLUGIN_DIR . '/_inc/lib/markdown.php';
+	}
+	$markdown = trim( before_parse( $markdown, $options ) );
+
+	$parser                      = new \WPCom_GHF_Markdown_Parser();
+	$parser->preserve_shortcodes = false;
+	$html                        = $parser->transform( $markdown );
+
+	return after_parse( $html, $options, $report );
 }

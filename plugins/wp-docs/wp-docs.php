@@ -29,6 +29,9 @@ require_once __DIR__ . '/inc/transforms/links.php';
 require_once __DIR__ . '/inc/transforms/images.php';
 require_once __DIR__ . '/inc/transforms/blocks.php';
 require_once __DIR__ . '/inc/transforms/agent-markdown.php';
+require_once __DIR__ . '/inc/transforms/chunks.php';
+require_once __DIR__ . '/inc/transforms/markdown-out.php';
+require_once __DIR__ . '/inc/transforms/reverse.php';
 require_once __DIR__ . '/inc/pipeline.php';
 
 // WordPress integration.
@@ -40,6 +43,7 @@ require_once __DIR__ . '/inc/redirects.php';
 require_once __DIR__ . '/inc/permalinks.php';
 require_once __DIR__ . '/inc/agents.php';
 require_once __DIR__ . '/inc/editor-notice.php';
+require_once __DIR__ . '/inc/editor.php';
 require_once __DIR__ . '/inc/global-header-footer.php';
 
 Local_Sources::init();
@@ -86,10 +90,13 @@ function load_importer() {
 	}
 
 	require_once __DIR__ . '/inc/class-importer.php';
+	require_once __DIR__ . '/inc/class-github.php';
+	require_once __DIR__ . '/inc/class-sync.php';
 	require_once __DIR__ . '/inc/rest.php';
 
 	Importer::instance()->init();
 	Webhook::init();
+	Sync::init();
 
 	if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		require_once __DIR__ . '/inc/cli.php';

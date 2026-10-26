@@ -7,14 +7,14 @@ Everything in this repository depends on the rules here. Change this file togeth
 | Repo | Owns |
 |---|---|
 | [ndiego/wordpress-documentation](https://github.com/ndiego/wordpress-documentation) | the Markdown, `manifest.json`, screenshots. Default branch `trunk`. |
-| this repo, `plugins/wp-docs/` | the `wp-docs` post type, the importer (a subclass of the vendored WordPress.org `wporg-markdown` importer), redirects, the Markdown and agent endpoints, the webhook, the vendored WordPress.org global header and footer, WP-CLI commands |
+| this repo, `plugins/wp-docs/` | the `docs` post type, the importer (a subclass of the vendored WordPress.org `wporg-markdown` importer), redirects, the Markdown and agent endpoints, the webhook, the vendored WordPress.org global header and footer, WP-CLI commands |
 | this repo, `plugins/wporg-markdown/` | the stock WordPress.org importer, vendored unchanged (`SOURCE.md`) |
 | this repo, `themes/wp-docs/` | the block theme: templates, the sidebar, table of contents, page actions, search palette, home and section landings, styles |
 | this repo, `.wp-env.json`, `tools/`, `package.json` | the local environment, setup, static export, screenshots of the site |
 
 ## Post type
 
-- Slug `wp-docs`, hierarchical, `rewrite => ['slug' => 'docs', 'with_front' => false]`, REST base `docs`,
+- Slug `docs`, hierarchical, `rewrite => ['slug' => 'docs', 'with_front' => false]`, REST base `docs`,
   `has_archive` true, supports title, editor, excerpt, revisions, page-attributes, custom-fields.
 - URL of a page: `/docs/<path>` where `path` is the page's path from the manifest (`write/create-a-post/`), stored
   in `_wp_docs_path` and served by the plugin's permalink filter and rewrite rule. `post_parent` mirrors the
@@ -41,6 +41,8 @@ Everything in this repository depends on the rules here. Change this file togeth
 | `_wp_docs_imported` | ISO 8601 time of the last import |
 | `_wp_docs_markdown` | the page's Markdown as served to agents: a front matter block (`title`, `description`, `type`, `url`, `source`), then the body with the H1, with relative links rewritten to absolute site URLs and relative images to their sideloaded URLs |
 | `_wp_docs_redirect_from` | JSON list of root-relative paths that 301 here |
+| `_wp_docs_blob_sha` | Git blob SHA of the Markdown file as imported (the reverse sync compares it with the branch head) |
+| `_wp_docs_last_push`, `_wp_docs_pull_request` | JSON records of the last commit pushed from the editor, and of the open pull request proposed from it |
 | bookkeeping | `_wp_docs_manifest`, `_wp_docs_removed`, `_wp_docs_output_mode`, `_wp_docs_transform`, `_wp_docs_applies_to` |
 
 Options: `wp_docs_last_import` (`{time, pages, warnings}`), `wp_docs_redirects` (path => post id).
@@ -74,8 +76,8 @@ Cron: the import runs every 15 minutes (filterable, `wp_docs_cron_interval`; `fa
 
 ## What the theme expects
 
-- A template `single-wp-docs.html`, `archive-wp-docs.html` (the home at `/docs/`), `front-page.html` (the same
-  home at `/`), `search.html` scoped to `wp-docs`, `404.html`.
+- A template `single-docs.html`, `archive-docs.html` (the home at `/docs/`), `front-page.html` (the same
+  home at `/`), `search.html` scoped to `docs`, `404.html`.
 - Theme helper functions live in the plugin so the theme stays thin: `wp_docs_get_tree()` (the whole tree from one
   cached query: nodes with id, title, parent, path, url, type, status, description, order; children by parent),
   `wp_docs_get_page_meta( $post )` (the meta above as an array), `wp_docs_get_breadcrumbs( $post )`,
@@ -94,6 +96,37 @@ GitHub alerts in the Markdown become `wporg/notice`-style markup in the blocks o
 `<div class="wp-block-wporg-notice is-<type>-notice"><div class="wp-block-wporg-notice__icon"></div><div class="wp-block-wporg-notice__content"><p>...</p></div></div>`
 with types `info` (NOTE), `tip` (TIP), `alert` (IMPORTANT, WARNING) and `warning` (CAUTION). The theme styles
 these four classes; nothing in the theme depends on the wporg notice block being registered.
+
+## Editing in WordPress: the reverse sync
+
+GitHub stays the source of truth. The block editor is a second way to write to it (`plugins/wp-docs/inc/class-sync.php`):
+
+- A save in the editor is intercepted before it is stored (`rest_pre_insert_docs`). Only the title, the description
+  (excerpt) and the content can change here; slug, parent, order and status changes are refused (they live in the
+  folder tree and the front matter).
+- The page's Markdown is fetched from the branch head and its blob SHA must equal `_wp_docs_blob_sha` (recorded at
+  import). Otherwise the save is refused: the site is behind GitHub and the next import catches up.
+- The saved blocks are merged into that Markdown (`inc/transforms/chunks.php`, `markdown-out.php`, `reverse.php`):
+  the source is split into chunks, each chunk is converted on its own so its blocks are known, unchanged chunks are
+  kept byte for byte, changed blocks are written back. The result is converted again and compared with the saved
+  blocks; a mismatch refuses the save and names the block.
+- Users with `wp_docs_push` (by default anyone with `edit_others_posts`, in `live` mode) commit straight to the
+  branch (compare-and-swap on the file, retried when the branch moves). The WordPress save then goes through: the
+  page is live at once, `_wp_docs_last_push` records the commit, and the import that follows (webhook from the
+  content repository's CI, plus a one-off cron run three minutes later) converges the stored content on the canonical
+  conversion. Everyone else gets a branch `wp-docs/<user>/<page>` and a pull request; the save is refused with the
+  pull request's address (`_wp_docs_pull_request`), and the page changes when it merges and the site imports it.
+  `WP_DOCS_GITHUB_MODE = 'review'` makes everyone propose.
+- Images uploaded in the editor are committed next to the page under `images/`; their attachments get
+  `_wp_docs_image_source` and `_wp_docs_image_hash` so the next import reuses them.
+- The editor only offers the blocks that round-trip (`inc/editor.php`: paragraph, heading, list, quote, code,
+  preformatted, table, image, separator, details, HTML, notice) and no colors, typography or spacing. Docs posts cannot
+  be deleted in WordPress. Title, excerpt and content changes from any other write path (quick edit, XML-RPC) are
+  dropped, except from the importer and WP-CLI.
+- Constants: `WP_DOCS_GITHUB_TOKEN` (a token with contents and pull requests write access; without it every save is
+  refused with a link to GitHub), `WP_DOCS_GITHUB_BRANCH` (default: the manifest's ref), `WP_DOCS_GITHUB_MODE`.
+  WP-CLI: `wp wp-docs push <page> [--commit] [--user=<login>]` shows (or commits) the Markdown diff for the stored
+  content.
 
 ## Rules
 

@@ -1,6 +1,6 @@
 # wp-docs: the documentation theme
 
-A standalone block theme (no parent theme, no build step) that renders the `wp-docs` post type under the
+A standalone block theme (no parent theme, no build step) that renders the `docs` post type under the
 WordPress.org global header and footer with a documentation layout: a sticky docs bar, a sidebar tree, the
 page with its type, description and status, a right rail with "Copy page" and "On this page", and a page
 footer with feedback, previous and next, and provenance links. The design brief is `../../DESIGN.md`; the
@@ -15,11 +15,11 @@ functions.php         setup, block registration, assets, small filters (below)
 inc/data.php          data access: the plugin's helpers, with fallbacks to post meta
 inc/anchors.php       heading ids and anchor links, the table of contents
 inc/render.php        markup shared by blocks (page actions, TOC list, chips)
-inc/search.php        search limited to wp-docs, fallback search index route
+inc/search.php        search limited to docs, fallback search index route
 inc/icons.php         inline SVG icons (@wordpress/icons paths, plus sun, moon, GitHub)
 blocks/<name>/        nine server-rendered blocks (block.json + render.php)
 parts/                header.html (global header, docs bar), footer.html (global footer)
-templates/            single-wp-docs, archive-wp-docs and front-page (the home), search, 404, index
+templates/            single-docs, archive-docs and front-page (the home), search, 404, index
 assets/style.css      the only stylesheet that blocks rendering
 assets/search-palette.css   the palette dialog, loaded by search-palette.js when idle or on first open
 assets/sidebar.js     toggles (sessionStorage), drawer, scroll the current page into view
@@ -43,7 +43,7 @@ The sidebar, breadcrumbs, page header, TOC, cards and home are complete HTML fro
 | `render_block_core/heading` | keeps the heading's `id` (the plugin writes GitHub ids at import), computes the same id when missing, and appends the hover anchor link on H2 to H4. Only inside the main post content of a docs page |
 | `render_block_core/group` | names the right rail landmark `aside aria-label="On this page"` |
 | `single_template_hierarchy` | the home post (`_wp_docs_path = ""`) renders with the home template wherever it is reached |
-| `pre_get_posts` | front-end search is limited to `wp-docs` |
+| `pre_get_posts` | front-end search is limited to `docs` |
 | `wp_head` | the `html.js` script; a meta description from the page's description |
 | `wp_enqueue_scripts` | dequeues code-syntax-block's Prism colors (the theme colors Prism tokens from its own custom properties) |
 

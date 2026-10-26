@@ -301,5 +301,58 @@ foreach ( glob( __DIR__ . '/fixtures/svg/*.svg' ) as $svg_file ) {
 }
 check( 'svg: the content repository diagram passes', Images\svg_is_safe( '<svg xmlns="http://www.w3.org/2000/svg"><g fill="none"><path d="M0 0h1"/></g></svg>' ), true );
 
+/*
+ * Reverse sync: chunks, Markdown out, merge.
+ */
+use WP_Docs\Transforms\Chunks;
+use WP_Docs\Transforms\Markdown_Out;
+use WP_Docs\Transforms\Reverse;
+
+$body   = "Para one.\n\n## Heading\n\n- a\n- b\n\n  - nested\n\n> [!NOTE]\n> Careful.\n\n> quoted\n\n> still quoted\n\n```php\n<?php echo 1;\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n<!-- a comment -->\n\n<details>\n<summary>More</summary>\n\nInside.\n\n</details>\n\n---\n\nLast.";
+$chunks = Chunks\chunk( $body );
+check( 'chunk kinds', array_column( $chunks, 'kind' ), array( 'paragraph', 'heading', 'list', 'alert', 'quote', 'fence', 'table', 'comment', 'details', 'hr', 'paragraph' ) );
+check( 'chunk list text', $chunks[2]['text'], "- a\n- b\n\n  - nested" );
+check( 'chunk quote merges', $chunks[4]['text'], "> quoted\n\n> still quoted" );
+check( 'chunk gap', $chunks[1]['gap'], "\n" );
+
+$convert = static fn( string $md ) => WP_Docs\Pipeline\convert_body( $md, array( 'mode' => 'blocks' ) );
+$blocks  = Markdown_Out\parse( $convert( $body ) );
+$noop    = Reverse\merge( $body, $blocks, $convert );
+check( 'merge no-op is identity', $noop['markdown'], $body );
+check( 'merge no-op stats', array( $noop['verbatim'], $noop['rewritten'], $noop['added'], $noop['removed'] ), array( 10, 0, 0, 0 ) );
+
+$edited                        = $blocks;
+$edited[0]['innerHTML']        = '<p>Para <strong>one</strong>, edited.</p>';
+$edited[0]['innerContent'][0]  = $edited[0]['innerHTML'];
+$merged                        = Reverse\merge( $body, $edited, $convert );
+check( 'merge rewrites one chunk', array( $merged['rewritten'], $merged['verbatim'] ), array( 1, 9 ) );
+check( 'merge keeps the rest', substr( $merged['markdown'], strlen( 'Para **one**, edited.' ) ), substr( $body, strlen( 'Para one.' ) ) );
+check( 'merge verifies', Reverse\verify( $merged['markdown'], $edited, $convert ), null );
+
+$removed = array_slice( $blocks, 1 );
+$merged  = Reverse\merge( $body, $removed, $convert );
+check( 'merge drops a removed chunk', substr( $merged['markdown'], 0, 10 ), '## Heading' );
+
+$added = array_merge( array_slice( $blocks, 0, 1 ), Markdown_Out\parse( $convert( 'New paragraph.' ) ), array_slice( $blocks, 1 ) );
+$merged = Reverse\merge( $body, $added, $convert );
+check( 'merge inserts', substr( $merged['markdown'], 0, 27 ), "Para one.\n\nNew paragraph.\n\n" );
+check( 'merge insert stats', array( $merged['added'], $merged['verbatim'] ), array( 1, 10 ) );
+
+$out = Markdown_Out\blocks_to_markdown( $blocks );
+check( 'markdown out alert', strpos( $out, "> [!NOTE]\n> Careful." ) !== false, true );
+check( 'markdown out table', strpos( $out, "| a | b |\n|---|---|\n| 1 | 2 |" ) !== false, true );
+check( 'markdown out fence', strpos( $out, "```php\n<?php echo 1;\n```" ) !== false, true );
+check( 'markdown out nested list', strpos( $out, "- b\n    - nested" ) !== false, true );
+check( 'markdown out details', strpos( $out, "<details>\n<summary>More</summary>\n\nInside.\n\n</details>" ) !== false, true );
+check( 'escape text', Markdown_Out\escape_text( 'a *b* [c] snake_case _x <tag> & &amp;' ), 'a \\*b\\* \\[c\\] snake_case \\_x &lt;tag> & &amp;amp;' );
+check( 'escape url text raw', Markdown_Out\escape_text( 'see https://x.y/*z*' ), 'see https://x.y/*z*' );
+
+$parts = Reverse\split_file( "---\ntitle: T\ndescription: D\n---\n\n# T\n\nBody.\n" );
+check( 'split file', array( $parts['title'], $parts['body'] ), array( 'T', "Body.\n" ) );
+check( 'join file', Reverse\join_file( $parts, 'Body.' ), "---\ntitle: T\ndescription: D\n---\n\n# T\n\nBody.\n" );
+check( 'front matter set', Reverse\set_front_matter_field( $parts['front_matter'], 'title', 'New: title' ), "---\ntitle: \"New: title\"\ndescription: D\n---\n" );
+check( 'front matter add', Reverse\set_front_matter_field( "---\ntitle: T\n---\n", 'description', 'D' ), "---\ntitle: T\ndescription: D\n---\n" );
+check( 'blob sha', sha1( "blob 6\0hello\n" ), 'ce013625030ba8dba906f756967f9e9ca394464a' );
+
 echo "\n{$GLOBALS['wdt_passed']} passed, {$GLOBALS['wdt_failed']} failed\n";
 exit( $GLOBALS['wdt_failed'] ? 1 : 0 );

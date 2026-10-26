@@ -50,6 +50,16 @@ the page. Show `wp wp-docs status` or the webhook response.
 What it proves: WordPress stays the renderer and the publishing system; the stock WordPress.org Markdown
 importer does the work, with one subclass.
 
+## 5b. Edit in WordPress, land on GitHub (two minutes)
+
+Open the same page in the block editor. The notice says where the save goes. Change a sentence, add a
+paragraph, save. Open the content repository: the commit is there, attributed to the WordPress user, and the
+diff is the sentence and the paragraph, nothing else. Try to rename the slug: refused, with the reason. Log in
+as a user without the push capability and save: the editor shows the pull request it opened instead.
+
+What it proves: GitHub stays the source of truth while people with the right permissions edit in WordPress,
+and the two never diverge, because a save is a commit.
+
 ## 6. Screenshots that re-render (one minute)
 
 Open `screenshots/shots/create-a-post.yaml` in the content repository: twelve lines per image. Say that a

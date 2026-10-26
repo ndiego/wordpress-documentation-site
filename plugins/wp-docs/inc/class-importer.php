@@ -244,17 +244,9 @@ class Importer extends Markdown_Importer {
 			return $this->fail( $manifest->get_error_message() );
 		}
 
-		$this->warnings    = array();
 		$this->image_cache = array();
-		$normalized        = Manifest\normalize( array( 'manifest' => $manifest ), $this->existing_paths() );
-		$this->warnings    = $normalized['warnings'];
-		$this->entries     = $normalized['entries'];
-		$this->source_map  = Manifest\source_map( $this->entries, repo_aliases() );
-		$this->keys_by_id  = array();
-		foreach ( $this->entries as $key => $doc ) {
-			$this->keys_by_id[ (string) $doc['id'] ] = $key;
-		}
-		$selected = $this->entries;
+		$this->warnings    = $this->load_entries( $manifest );
+		$selected          = $this->entries;
 		if ( ! $selected ) {
 			return $this->fail( "The manifest at {$location} has no importable entries." );
 		}
@@ -334,6 +326,140 @@ class Importer extends Markdown_Importer {
 		do_action( 'wp_docs_imported', $summary );
 
 		return $summary;
+	}
+
+	/**
+	 * Index the manifest entries for a run (or for the reverse sync outside a run).
+	 *
+	 * @param array|null $manifest Decoded manifest; loaded when null.
+	 * @return string[] Normalisation warnings.
+	 */
+	public function load_entries( $manifest = null ) {
+		if ( null === $manifest ) {
+			if ( $this->entries ) {
+				return array();
+			}
+			$manifest = Local_Sources::load_manifest();
+			if ( is_wp_error( $manifest ) ) {
+				return array( $manifest->get_error_message() );
+			}
+		}
+		$normalized       = Manifest\normalize( array( 'manifest' => $manifest ), $this->existing_paths() );
+		$this->entries    = $normalized['entries'];
+		$this->source_map = Manifest\source_map( $this->entries, repo_aliases() );
+		$this->keys_by_id = array();
+		foreach ( $this->entries as $key => $doc ) {
+			$this->keys_by_id[ (string) $doc['id'] ] = $key;
+		}
+		return $normalized['warnings'];
+	}
+
+	/**
+	 * Whether an import is running in this request.
+	 *
+	 * @return bool
+	 */
+	public function is_running() {
+		return null !== $this->current;
+	}
+
+	/**
+	 * The manifest entry of a post, by its page id.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array|null
+	 */
+	public function entry_for_post( $post_id ) {
+		$this->load_entries();
+		$id  = (string) get_post_meta( $post_id, '_wp_docs_id', true );
+		$key = $this->keys_by_id[ $id ] ?? null;
+		return null !== $key && isset( $this->entries[ $key ] ) ? $this->entries[ $key ] : null;
+	}
+
+	/**
+	 * What the reverse sync needs to convert a page outside an import: the pipeline options with an
+	 * image callback that only finds attachments already imported (never fetches), and the page's source.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array { options: array, source: array|null, doc: array }
+	 */
+	public function reverse_context( $post_id ) {
+		$this->load_entries();
+		$doc    = $this->entry_for_post( $post_id );
+		$source = Sources\parse( (string) $this->get_markdown_source( $post_id ) );
+
+		$this->current = array(
+			'post_id'      => (int) $post_id,
+			'doc'          => $doc ? $doc : array(),
+			'source'       => $source,
+			'fetch_url'    => '',
+			'front_matter' => null,
+			'report'       => array(),
+		);
+		try {
+			$options                 = $this->pipeline_options();
+			$options['import_image'] = array( $this, 'find_image' );
+			return array(
+				'options' => $options,
+				'source'  => $source,
+				'doc'     => $this->current['doc'],
+			);
+		} finally {
+			$this->current = null;
+		}
+	}
+
+	/**
+	 * Rebuild the Markdown served to agents from a raw file (after a push from the editor).
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $raw     Raw file as committed.
+	 */
+	public function refresh_agent_markdown( $post_id, $raw ) {
+		$context = $this->reverse_context( $post_id );
+		list( $data, $body ) = Transforms\Front_Matter\split( $raw );
+		$this->current       = array(
+			'post_id'       => (int) $post_id,
+			'doc'           => $context['doc'],
+			'source'        => $context['source'],
+			'front_matter'  => Transforms\Front_Matter\normalize( $data ),
+			'markdown_body' => $body,
+			'report'        => array(),
+		);
+		try {
+			update_post_meta( $post_id, '_wp_docs_markdown', wp_slash( $this->agent_markdown( $post_id ) ) );
+			update_post_meta( $post_id, '_wp_docs_blob_sha', GitHub::blob_sha( $raw ) );
+		} finally {
+			$this->current = null;
+		}
+	}
+
+	/**
+	 * An attachment already imported for a repository image, without fetching anything.
+	 *
+	 * @param array  $target Parsed image source.
+	 * @param string $alt    Alt text (unused).
+	 * @return array|null { url, id }
+	 */
+	public function find_image( array $target, string $alt = '' ) {
+		$found = get_posts(
+			array(
+				'post_type'      => 'attachment',
+				'post_status'    => 'inherit',
+				'fields'         => 'ids',
+				'posts_per_page' => 1,
+				'meta_key'       => '_wp_docs_image_source', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value'     => Sources\canonical_url( $target ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			)
+		);
+		if ( ! $found ) {
+			return null;
+		}
+		$url = wp_get_attachment_url( (int) $found[0] );
+		return $url ? array(
+			'url' => $url,
+			'id'  => (int) $found[0],
+		) : null;
 	}
 
 	/**
@@ -616,9 +742,12 @@ class Importer extends Markdown_Importer {
 			return $response;
 		}
 
-		// The body as written, for the Markdown served to agents.
-		list( , $body_only )             = Transforms\Front_Matter\split( (string) wp_remote_retrieve_body( $response ) );
+		// The body as written, for the Markdown served to agents, and the Git blob SHA of the file as
+		// fetched, which the reverse sync compares with the branch head before it writes.
+		$raw                            = (string) wp_remote_retrieve_body( $response );
+		list( , $body_only )             = Transforms\Front_Matter\split( $raw );
 		$this->current['markdown_body'] = $body_only;
+		$this->current['blob_sha']      = GitHub::blob_sha( $raw );
 
 		/**
 		 * Filters whether front matter is parsed by the plugin (transform b). When false, the stock
@@ -884,6 +1013,7 @@ class Importer extends Markdown_Importer {
 		update_post_meta( $post_id, '_wp_docs_imported', gmdate( 'c' ) );
 		update_post_meta( $post_id, '_wp_docs_transform', $this->transform_signature() );
 		update_post_meta( $post_id, '_wp_docs_output_mode', $this->current['mode'] ?? '' );
+		update_post_meta( $post_id, '_wp_docs_blob_sha', (string) ( $this->current['blob_sha'] ?? '' ) );
 
 		// Front matter can fill fields the manifest left empty, and the issue URL carries the commit.
 		$this->write_manifest_meta( $post_id, $this->current['doc'] );

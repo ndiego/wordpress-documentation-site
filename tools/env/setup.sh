@@ -16,8 +16,8 @@ wpcli option update timezone_string 'UTC'
 wpcli rewrite structure '/%postname%/'
 wpcli rewrite flush
 
-if ! wpcli post-type get wp-docs --field=name >/dev/null 2>&1; then
-	echo "The wp-docs post type is not registered (is plugins/wp-docs active?). Stopping."
+if ! wpcli post-type get docs --field=name >/dev/null 2>&1; then
+	echo "The docs post type is not registered (is plugins/wp-docs active?). Stopping."
 	exit 1
 fi
 

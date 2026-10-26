@@ -11,7 +11,7 @@ namespace WP_Docs_Theme;
 
 defined( 'ABSPATH' ) || die();
 
-const POST_TYPE = 'wp-docs';
+const POST_TYPE = 'docs';
 
 /**
  * The documentation tree, in the shape of `wp_docs_get_tree()`:

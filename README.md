@@ -113,6 +113,28 @@ the cron) goes back to `WP_DOCS_MANIFEST` and unpublishes the sample pages that 
 as the configured manifest, put `{"config": {"WP_DOCS_MANIFEST": "/var/www/html/wp-docs-tools/sample-content/manifest.json"}}`
 in `.wp-env.override.json` (ignored by git) and run `npm run start` again.
 
+## Editing in WordPress
+
+Writers who prefer the editor can use it: a save on a docs page is written to the content repository before it
+is stored, so GitHub stays the source of truth and the site never shows something the repository does not say.
+
+- Editors and administrators (`wp_docs_push`, mapped from `edit_others_posts`) commit straight to the branch. The
+  page is live right away; the import that follows converges the stored content on the canonical conversion.
+- Everyone else who can edit gets a branch and a pull request; the page changes when it is merged. Set
+  `WP_DOCS_GITHUB_MODE` to `review` to put everyone on that path.
+- The Markdown written back is a minimal diff: unchanged paragraphs, lists and tables stay byte for byte, and
+  the result is verified by converting it again and comparing it with what was saved. A block that would not
+  survive the trip refuses the save and says which one. `php plugins/wp-docs/tests/run-roundtrip.php` runs
+  that check over every page of the content checkout (236 of 237 pass; the one left is a ported list whose
+  paragraph wrapping the parser decides in a way the writer does not model).
+- Slug, parent, order, status and deletion stay on GitHub, and new pages start there too. The editor only
+  offers the blocks that round-trip and no styling options.
+
+The site needs `WP_DOCS_GITHUB_TOKEN` (contents and pull requests write access on the content repository);
+`tools/studio/setup.sh` takes it from the environment or from `gh auth token`. `wp wp-docs push <page>` shows the
+diff a push would commit for the stored content, and `--commit` commits it. CONTRACT.md describes the whole
+flow.
+
 ## Endpoints
 
 | URL | Returns |
@@ -132,7 +154,7 @@ Details, constants and filters: `plugins/wp-docs/README.md`.
 ## Plugin
 
 `plugins/wp-docs/` (plugin name "WordPress Documentation") is a subclass of the stock importer in
-`plugins/wporg-markdown/`, which stays byte-identical to the WordPress.org copy. It registers the `wp-docs` post
+`plugins/wporg-markdown/`, which stays byte-identical to the WordPress.org copy. It registers the `docs` post
 type, imports the manifest, writes the meta the theme reads, serves the endpoints above, runs the webhook and the
 cron, and provides `wp wp-docs import|status|convert`. It also loads copies of the WordPress.org global header,
 footer and fonts from `wporg-mu-plugins` (unchanged, `plugins/wp-docs/vendor/PATCHES.md`), so

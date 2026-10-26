@@ -193,4 +193,100 @@ class CLI {
 			WP_CLI::warning( 'Content outside blocks: ' . implode( ' | ', $report['freeform'] ) );
 		}
 	}
+
+	/**
+	 * Write the current content of a page back to its Markdown file: show the diff, or commit it.
+	 *
+	 * Runs the same merge the editor's save runs (fetch the file from the branch, merge the stored
+	 * blocks into it, verify the round trip). Without --commit nothing is written.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <post>
+	 * : Post ID or page path (write/create-a-post).
+	 *
+	 * [--commit]
+	 * : Commit to the content branch as the user given by --user (default: the first administrator).
+	 *
+	 * [--user=<login>]
+	 * : The WordPress user the commit is attributed to.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wp-docs push write/create-a-post
+	 *     wp wp-docs push 19 --commit --user=nick
+	 *
+	 * @param array $args       Positional.
+	 * @param array $assoc_args Named.
+	 */
+	public function push( $args, $assoc_args ) {
+		$post = is_numeric( $args[0] ) ? get_post( (int) $args[0] ) : get_post( (int) Permalinks::post_for_path( trim( $args[0], '/' ) ) );
+		if ( ! $post || POST_TYPE !== $post->post_type ) {
+			WP_CLI::error( "No docs page: {$args[0]}" );
+		}
+		$login = (string) Utils\get_flag_value( $assoc_args, 'user', '' );
+		$user  = '' !== $login ? get_user_by( 'login', $login ) : ( get_users( array( 'role' => 'administrator', 'number' => 1 ) )[0] ?? null );
+		if ( ! $user ) {
+			WP_CLI::error( 'No such user.' );
+		}
+		wp_set_current_user( $user->ID );
+
+		$prepared               = new \stdClass();
+		$prepared->ID           = $post->ID;
+		$prepared->post_title   = $post->post_title;
+		$prepared->post_excerpt = $post->post_excerpt;
+		$prepared->post_content = $post->post_content;
+
+		$built = Sync::build( $post, $prepared, array( 'title' => false, 'description' => false, 'content' => true, 'structure' => array() ) );
+		if ( is_wp_error( $built ) ) {
+			WP_CLI::error( $built->get_error_message() );
+		}
+		$stats = $built['stats'];
+		WP_CLI::log( sprintf( '%s: %d chunks unchanged, %d rewritten, %d blocks added, %d chunks removed, %d images to add.', $built['path'], $stats['verbatim'], $stats['rewritten'], $stats['added'], $stats['removed'], count( $built['images'] ) ) );
+		foreach ( $stats['warnings'] as $warning ) {
+			WP_CLI::warning( $warning );
+		}
+		if ( $built['before'] === $built['raw'] ) {
+			WP_CLI::success( 'The file would not change.' );
+			return;
+		}
+		$this->print_diff( $built['before'], $built['raw'], $built['path'] );
+
+		if ( ! Utils\get_flag_value( $assoc_args, 'commit', false ) ) {
+			WP_CLI::log( 'Dry run; add --commit to push.' );
+			return;
+		}
+		$message = sprintf( "docs(%s): %s\n\nPushed with WP-CLI by %s.", $built['key'], $built['title'], $user->user_login );
+		$author  = array(
+			'name'  => $user->display_name,
+			'email' => $user->user_email,
+		);
+		$files   = array_merge( array( $built['path'] => $built['raw'] ), $built['images'] );
+		$result  = $built['github']->push( Sync::branch(), $files, array( $built['path'] => $built['blob_sha'] ), $message, $author );
+		if ( is_wp_error( $result ) ) {
+			WP_CLI::error( $result->get_error_message() );
+		}
+		Importer::instance()->refresh_agent_markdown( $post->ID, $built['raw'] );
+		delete_post_meta( $post->ID, 'wporg_markdown_etag' );
+		WP_CLI::success( "Committed {$result['commit']} on " . Sync::branch() . '.' );
+	}
+
+	/**
+	 * A unified diff of two texts (with the system diff when it is there).
+	 *
+	 * @param string $before Before.
+	 * @param string $after  After.
+	 * @param string $path   Label.
+	 */
+	protected function print_diff( $before, $after, $path ) {
+		$dir = get_temp_dir();
+		$a   = tempnam( $dir, 'wpd' );
+		$b   = tempnam( $dir, 'wpd' );
+		file_put_contents( $a, $before ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( $b, $after ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		$diff = shell_exec( 'diff -u --label a/' . escapeshellarg( $path ) . ' --label b/' . escapeshellarg( $path ) . ' ' . escapeshellarg( $a ) . ' ' . escapeshellarg( $b ) . ' 2>/dev/null' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		wp_delete_file( $a );
+		wp_delete_file( $b );
+		WP_CLI::log( is_string( $diff ) && '' !== $diff ? $diff : $after );
+	}
 }

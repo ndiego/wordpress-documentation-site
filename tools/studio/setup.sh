@@ -34,8 +34,25 @@ for plugin in wp-docs wporg-markdown; do
 done
 ln -sfn "$HERE/themes/wp-docs" "$SITE/wp-content/themes/wp-docs"
 
-# The constants that .wp-env.json sets for wp-env. An mu-plugin, so Studio's own edits to wp-config.php
-# never touch them.
+# The constants that .wp-env.json sets for wp-env, plus GitHub write access for the reverse sync (saves in
+# the editor commit to the content repository): WP_DOCS_GITHUB_TOKEN from the environment, else the GitHub
+# CLI's token when `gh` is logged in. WP_DOCS_GITHUB_BRANCH picks the branch saves go to (default: the
+# branch the manifest points at, trunk). An mu-plugin, so Studio's own edits to wp-config.php never touch them.
+TOKEN="${WP_DOCS_GITHUB_TOKEN:-}"
+if [ -z "$TOKEN" ] && command -v gh >/dev/null 2>&1; then
+	TOKEN="$(gh auth token 2>/dev/null || true)"
+fi
+GITHUB_LINES=""
+if [ -n "$TOKEN" ]; then
+	GITHUB_LINES="defined( 'WP_DOCS_GITHUB_TOKEN' ) || define( 'WP_DOCS_GITHUB_TOKEN', '$TOKEN' );"
+	echo "GitHub write access: on (saves in the editor commit to the content repository)."
+else
+	echo "GitHub write access: off (set WP_DOCS_GITHUB_TOKEN or log in with gh; saves in the editor are refused)."
+fi
+if [ -n "${WP_DOCS_GITHUB_BRANCH:-}" ]; then
+	GITHUB_LINES="$GITHUB_LINES
+defined( 'WP_DOCS_GITHUB_BRANCH' ) || define( 'WP_DOCS_GITHUB_BRANCH', '$WP_DOCS_GITHUB_BRANCH' );"
+fi
 cat > "$SITE/wp-content/mu-plugins/wp-docs-local.php" <<PHP
 <?php
 /**
@@ -46,6 +63,7 @@ defined( 'WP_DOCS_MANIFEST' ) || define( 'WP_DOCS_MANIFEST', '$CONTENT/manifest.
 defined( 'WP_DOCS_PREFER_LOCAL' ) || define( 'WP_DOCS_PREFER_LOCAL', true );
 defined( 'WP_DOCS_WEBHOOK_SECRET' ) || define( 'WP_DOCS_WEBHOOK_SECRET', 'local-webhook-secret' );
 defined( 'JETPACK_DEV_DEBUG' ) || define( 'JETPACK_DEV_DEBUG', true );
+${GITHUB_LINES}
 PHP
 
 wp() {

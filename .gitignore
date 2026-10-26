@@ -6,3 +6,5 @@ tools/shots/
 .spacefast/.spacefast-*
 .spacefast/.space-link-*.tmp
 static/
+tools/editor-audit.json
+tools/posts.json
