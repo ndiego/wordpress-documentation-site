@@ -5,3 +5,4 @@ tools/shots/
 /.spacefast-*
 .spacefast/.spacefast-*
 .spacefast/.space-link-*.tmp
+static/
