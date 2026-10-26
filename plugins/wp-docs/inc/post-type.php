@@ -1,15 +1,15 @@
 <?php
 /**
- * The `wporg-docs` post type and its meta (AGENTS.md "Post type" and "Post meta").
+ * The `wp-docs` post type and its meta (AGENTS.md "Post type" and "Post meta").
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 defined( 'WPINC' ) || die();
 
-const POST_TYPE = 'wporg-docs';
+const POST_TYPE = 'wp-docs';
 
 add_action( 'init', __NAMESPACE__ . '\register_post_type' );
 add_action( 'init', __NAMESPACE__ . '\register_meta' );
@@ -53,24 +53,24 @@ function register_post_type() {
  */
 function meta_keys() {
 	return array(
-		'_wporg_docs_id'                => 'Stable page id from structure.yaml.',
-		'_wporg_docs_section'           => 'Section slug.',
-		'_wporg_docs_audience'          => 'JSON list, subset of ["user","developer","contributor"].',
-		'_wporg_docs_source_url'        => 'GitHub blob URL of the Markdown file.',
-		'_wporg_docs_edit_url'          => 'GitHub edit URL of the Markdown file.',
-		'_wporg_docs_issue_url'         => 'Prefilled new-issue URL in the owning repository.',
-		'_wporg_docs_commit'            => 'Commit SHA of the imported revision; empty when unknown.',
-		'_wporg_docs_imported'          => 'ISO 8601 time of the last content import.',
-		'_wporg_docs_generated'         => 'Empty, or JSON {by, from} for generated pages.',
-		'_wporg_docs_applies_to'        => 'JSON list of reference ids the page explains.',
-		'_wporg_docs_tab'               => 'Tab of the page\'s section: docs, build or reference (manifest `tab`).',
+		'_wp_docs_id'                => 'Stable page id from structure.yaml.',
+		'_wp_docs_section'           => 'Section slug.',
+		'_wp_docs_audience'          => 'JSON list, subset of ["user","developer","contributor"].',
+		'_wp_docs_source_url'        => 'GitHub blob URL of the Markdown file.',
+		'_wp_docs_edit_url'          => 'GitHub edit URL of the Markdown file.',
+		'_wp_docs_issue_url'         => 'Prefilled new-issue URL in the owning repository.',
+		'_wp_docs_commit'            => 'Commit SHA of the imported revision; empty when unknown.',
+		'_wp_docs_imported'          => 'ISO 8601 time of the last content import.',
+		'_wp_docs_generated'         => 'Empty, or JSON {by, from} for generated pages.',
+		'_wp_docs_applies_to'        => 'JSON list of reference ids the page explains.',
+		'_wp_docs_tab'               => 'Tab of the page\'s section: docs, build or reference (manifest `tab`).',
 		// Plugin bookkeeping (not in the AGENTS.md contract; additive).
-		'_wporg_docs_path'              => 'Path under /docs/ (the manifest key).',
-		'_wporg_docs_manifest'          => 'Name of the manifest the page comes from.',
-		'_wporg_docs_redirect_from'     => 'JSON list of same-host paths that redirect here.',
-		'_wporg_docs_redirect_external' => 'JSON list of other-host URLs that should redirect here (not served by this site).',
-		'_wporg_docs_removed'           => 'ISO 8601 time the page left the manifest (the post is a draft).',
-		'_wporg_docs_output_mode'       => 'classic or blocks.',
+		'_wp_docs_path'              => 'Path under /docs/ (the manifest key).',
+		'_wp_docs_manifest'          => 'Name of the manifest the page comes from.',
+		'_wp_docs_redirect_from'     => 'JSON list of same-host paths that redirect here.',
+		'_wp_docs_redirect_external' => 'JSON list of other-host URLs that should redirect here (not served by this site).',
+		'_wp_docs_removed'           => 'ISO 8601 time the page left the manifest (the post is a draft).',
+		'_wp_docs_output_mode'       => 'classic or blocks.',
 	);
 }
 

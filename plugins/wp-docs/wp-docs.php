@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: WordPress.org Docs hub
- * Description: The `wporg-docs` post type and the hub importer: a subclass of the WordPress.org Markdown importer (wporg-markdown) that imports manifest/*.json, with GitHub alerts, front matter, image sideloading, link rewriting, redirects, removals, a webhook and block output.
+ * Description: The `wp-docs` post type and the hub importer: a subclass of the WordPress.org Markdown importer (wporg-markdown) that imports manifest/*.json, with GitHub alerts, front matter, image sideloading, link rewriting, redirects, removals, a webhook and block output.
  * Version: 0.1.0
  * Requires at least: 6.5
  * Requires PHP: 8.1
@@ -9,10 +9,10 @@
  * License: GPLv2 or later
  * Text Domain: wporg
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 defined( 'WPINC' ) || die();
 
@@ -55,7 +55,7 @@ function activate() {
  * Stop the recurring import.
  */
 function deactivate() {
-	wp_clear_scheduled_hook( 'wporg_docs_import' );
+	wp_clear_scheduled_hook( 'wp_docs_import' );
 	flush_rewrite_rules();
 }
 
@@ -84,6 +84,6 @@ function load_importer() {
 
 	if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		require_once __DIR__ . '/inc/cli.php';
-		\WP_CLI::add_command( 'wporg-docs', CLI::class );
+		\WP_CLI::add_command( 'wp-docs', CLI::class );
 	}
 }

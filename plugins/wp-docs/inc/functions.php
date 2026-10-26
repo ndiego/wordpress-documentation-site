@@ -2,10 +2,10 @@
 /**
  * Helpers shared by the importer, the CLI and local sources.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 defined( 'WPINC' ) || die();
 
@@ -38,7 +38,7 @@ function output_mode( $post_id = 0 ) {
 	 * @param string $mode    Default 'blocks'.
 	 * @param int    $post_id Post being imported.
 	 */
-	$mode = apply_filters( 'wporg_docs_output_mode', 'blocks', $post_id );
+	$mode = apply_filters( 'wp_docs_output_mode', 'blocks', $post_id );
 	return 'classic' === $mode ? 'classic' : 'blocks';
 }
 
@@ -49,9 +49,9 @@ function output_mode( $post_id = 0 ) {
  */
 function repo_aliases() {
 	$aliases = array(
-		( defined( 'WPORG_DOCS_HUB_REPO' ) ? WPORG_DOCS_HUB_REPO : 'ndiego/wporg-docs' ) => array(
+		( defined( 'WP_DOCS_HUB_REPO' ) ? WP_DOCS_HUB_REPO : 'ndiego/wordpress-documentation' ) => array(
 			'prefix' => '',
-			'ref'    => defined( 'WPORG_DOCS_HUB_REF' ) ? WPORG_DOCS_HUB_REF : 'trunk',
+			'ref'    => defined( 'WP_DOCS_HUB_REF' ) ? WP_DOCS_HUB_REF : 'trunk',
 		),
 	);
 
@@ -61,7 +61,7 @@ function repo_aliases() {
 	 *
 	 * @param array $aliases 'owner/repo' => [ 'prefix' => '', 'ref' => 'trunk' ].
 	 */
-	return (array) apply_filters( 'wporg_docs_repo_aliases', $aliases );
+	return (array) apply_filters( 'wp_docs_repo_aliases', $aliases );
 }
 
 /**
@@ -75,11 +75,11 @@ function fetch_commit_sha( array $source ) {
 		return null;
 	}
 	/**
-	 * Filters the GitHub token used to look up commit SHAs. Without one, `_wporg_docs_commit` stays empty.
+	 * Filters the GitHub token used to look up commit SHAs. Without one, `_wp_docs_commit` stays empty.
 	 *
-	 * @param string $token Default: the WPORG_DOCS_GITHUB_TOKEN constant.
+	 * @param string $token Default: the WP_DOCS_GITHUB_TOKEN constant.
 	 */
-	$token = (string) apply_filters( 'wporg_docs_github_token', defined( 'WPORG_DOCS_GITHUB_TOKEN' ) ? WPORG_DOCS_GITHUB_TOKEN : '' );
+	$token = (string) apply_filters( 'wp_docs_github_token', defined( 'WP_DOCS_GITHUB_TOKEN' ) ? WP_DOCS_GITHUB_TOKEN : '' );
 	if ( '' === $token ) {
 		return null;
 	}
@@ -99,7 +99,7 @@ function fetch_commit_sha( array $source ) {
 			'headers' => array(
 				'Accept'        => 'application/vnd.github+json',
 				'Authorization' => 'Bearer ' . $token,
-				'User-Agent'    => 'wporg-docs',
+				'User-Agent'    => 'wp-docs',
 			),
 		)
 	);

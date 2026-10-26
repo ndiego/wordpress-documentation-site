@@ -2,22 +2,22 @@
 /**
  * Change (i): import webhook.
  *
- * `POST /wp-json/wporg-docs/v1/import` with a shared secret schedules an immediate import, so a GitHub
+ * `POST /wp-json/wp-docs/v1/import` with a shared secret schedules an immediate import, so a GitHub
  * Action can trigger the import on merge instead of waiting for the next 15-minute cron run.
  *
  * Authentication, either:
- * - header `X-WPorg-Docs-Secret: <secret>`; or
+ * - header `X-WP-Docs-Secret: <secret>`; or
  * - GitHub's `X-Hub-Signature-256: sha256=<HMAC-SHA256 of the raw body with the secret>` (a repository
  *   webhook pointed straight at the endpoint).
  *
- * The secret is the WPORG_DOCS_WEBHOOK_SECRET constant (or the `wporg_docs_webhook_secret` filter).
+ * The secret is the WP_DOCS_WEBHOOK_SECRET constant (or the `wp_docs_webhook_secret` filter).
  * Without a secret the endpoint is disabled. Body (JSON or form): `manifest` (optional, a manifest
  * name; empty imports all), `force` (optional, ignore ETags).
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 use WP_Error;
 use WP_REST_Request;
@@ -42,7 +42,7 @@ class Webhook {
 	 */
 	public static function register_routes() {
 		register_rest_route(
-			'wporg-docs/v1',
+			'wp-docs/v1',
 			'/import',
 			array(
 				'methods'             => 'POST',
@@ -71,9 +71,9 @@ class Webhook {
 		/**
 		 * Filters the webhook secret. Empty disables the endpoint.
 		 *
-		 * @param string $secret Default: the WPORG_DOCS_WEBHOOK_SECRET constant.
+		 * @param string $secret Default: the WP_DOCS_WEBHOOK_SECRET constant.
 		 */
-		return (string) apply_filters( 'wporg_docs_webhook_secret', defined( 'WPORG_DOCS_WEBHOOK_SECRET' ) ? WPORG_DOCS_WEBHOOK_SECRET : '' );
+		return (string) apply_filters( 'wp_docs_webhook_secret', defined( 'WP_DOCS_WEBHOOK_SECRET' ) ? WP_DOCS_WEBHOOK_SECRET : '' );
 	}
 
 	/**
@@ -85,10 +85,10 @@ class Webhook {
 	public static function authorize( WP_REST_Request $request ) {
 		$secret = self::secret();
 		if ( '' === $secret ) {
-			return new WP_Error( 'wporg_docs_webhook_disabled', 'The import webhook is not configured.', array( 'status' => 503 ) );
+			return new WP_Error( 'wp_docs_webhook_disabled', 'The import webhook is not configured.', array( 'status' => 503 ) );
 		}
 
-		$given = (string) $request->get_header( 'x_wporg_docs_secret' );
+		$given = (string) $request->get_header( 'x_wp_docs_secret' );
 		if ( '' !== $given && hash_equals( $secret, $given ) ) {
 			return true;
 		}
@@ -98,7 +98,7 @@ class Webhook {
 			return true;
 		}
 
-		return new WP_Error( 'wporg_docs_webhook_forbidden', 'Invalid or missing secret.', array( 'status' => 403 ) );
+		return new WP_Error( 'wp_docs_webhook_forbidden', 'Invalid or missing secret.', array( 'status' => 403 ) );
 	}
 
 	/**
@@ -111,7 +111,7 @@ class Webhook {
 		$manifest = sanitize_file_name( (string) $request->get_param( 'manifest' ) );
 		$manifest = preg_replace( '/\.json$/', '', $manifest );
 		if ( '' !== $manifest && ! in_array( $manifest, Manifests::names(), true ) ) {
-			return new WP_Error( 'wporg_docs_unknown_manifest', "Unknown manifest \"{$manifest}\".", array( 'status' => 400 ) );
+			return new WP_Error( 'wp_docs_unknown_manifest', "Unknown manifest \"{$manifest}\".", array( 'status' => 400 ) );
 		}
 
 		$args = array( '' === $manifest ? null : $manifest, (bool) $request->get_param( 'force' ) );

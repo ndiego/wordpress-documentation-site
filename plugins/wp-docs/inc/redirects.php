@@ -5,16 +5,16 @@
  * Today a renamed handbook page needs a second pull request to wporg-developer adding a line to a
  * hard-coded PHP array (import-block-editor.php `redirects()`, about 70 entries). Here `redirect_from`
  * travels with the page in the manifest (and front matter); the importer stores it in
- * `_wporg_docs_redirect_from` and this handler serves a 301 for any old path that would otherwise 404.
+ * `_wp_docs_redirect_from` and this handler serves a 301 for any old path that would otherwise 404.
  *
  * Only same-host paths can be served here. Full URLs on other hosts (old developer.wordpress.org
- * handbook pages, for example) are stored in `_wporg_docs_redirect_external` for a rule on that host;
+ * handbook pages, for example) are stored in `_wp_docs_redirect_external` for a rule on that host;
  * this site never sees those requests.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 defined( 'WPINC' ) || die();
 
@@ -23,7 +23,7 @@ defined( 'WPINC' ) || die();
  */
 class Redirects {
 
-	const OPTION = 'wporg_docs_redirects';
+	const OPTION = 'wp_docs_redirects';
 
 	/**
 	 * Hook up.
@@ -41,7 +41,7 @@ class Redirects {
 		global $wpdb;
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
-				"SELECT pm.post_id, pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = '_wporg_docs_redirect_from' AND p.post_type = %s AND p.post_status = 'publish' ORDER BY p.ID",
+				"SELECT pm.post_id, pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = '_wp_docs_redirect_from' AND p.post_type = %s AND p.post_status = 'publish' ORDER BY p.ID",
 				POST_TYPE
 			)
 		);
@@ -68,12 +68,12 @@ class Redirects {
 		 *
 		 * @param bool $enabled Default true.
 		 */
-		if ( ! is_404() || ! apply_filters( 'wporg_docs_redirects_enabled', true ) ) {
+		if ( ! is_404() || ! apply_filters( 'wp_docs_redirects_enabled', true ) ) {
 			return;
 		}
 		$target = self::lookup( (string) wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ), PHP_URL_PATH ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		if ( $target ) {
-			wp_safe_redirect( $target, 301, 'wporg-docs' );
+			wp_safe_redirect( $target, 301, 'wp-docs' );
 			exit;
 		}
 	}
@@ -97,7 +97,7 @@ class Redirects {
 		 *
 		 * @param array<string,int> $map Lookup.
 		 */
-		$map = (array) apply_filters( 'wporg_docs_redirects', $map );
+		$map = (array) apply_filters( 'wp_docs_redirects', $map );
 		if ( '' === $path || empty( $map[ $path ] ) || 'publish' !== get_post_status( (int) $map[ $path ] ) ) {
 			return null;
 		}

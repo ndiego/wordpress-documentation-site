@@ -31,15 +31,15 @@
  *
  * Deterministic and pure: DOMDocument only, no WordPress dependency.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs\Transforms\Blocks;
+namespace WP_Docs\Transforms\Blocks;
 
 use DOMDocument;
 use DOMElement;
 use DOMNode;
-use WordPressdotorg\Docs\Transforms\Alerts;
+use WP_Docs\Transforms\Alerts;
 
 const INLINE_TAGS = array( 'a', 'abbr', 'b', 'bdi', 'bdo', 'br', 'cite', 'code', 'data', 'del', 'dfn', 'em', 'i', 'img', 'ins', 'kbd', 'mark', 'q', 's', 'samp', 'small', 'span', 'strike', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr' );
 
@@ -80,16 +80,16 @@ function load( string $html ): ?DOMElement {
 	$doc      = new DOMDocument( '1.0', 'UTF-8' );
 	$previous = libxml_use_internal_errors( true );
 	$doc->loadHTML(
-		'<?xml encoding="UTF-8"?><!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div id="wporg-docs-root">' . $html . '</div></body></html>',
+		'<?xml encoding="UTF-8"?><!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div id="wp-docs-root">' . $html . '</div></body></html>',
 		LIBXML_NONET | LIBXML_COMPACT
 	);
 	libxml_clear_errors();
 	libxml_use_internal_errors( $previous );
 
-	$root = $doc->getElementById( 'wporg-docs-root' );
+	$root = $doc->getElementById( 'wp-docs-root' );
 	if ( ! $root ) {
 		foreach ( $doc->getElementsByTagName( 'div' ) as $div ) {
-			if ( 'wporg-docs-root' === $div->getAttribute( 'id' ) ) {
+			if ( 'wp-docs-root' === $div->getAttribute( 'id' ) ) {
 				return $div;
 			}
 		}
@@ -228,7 +228,7 @@ function inline_run_to_block( array $nodes ): ?string {
 		}
 	}
 
-	$html = trim( implode( '', array_map( 'WordPressdotorg\Docs\Transforms\Blocks\outer_html', $nodes ) ) );
+	$html = trim( implode( '', array_map( 'WP_Docs\Transforms\Blocks\outer_html', $nodes ) ) );
 	$html = preg_replace( '#^(<br\s*/?>\s*)+|(\s*<br\s*/?>)+$#i', '', $html );
 	if ( '' === trim( $html ) ) {
 		return null;

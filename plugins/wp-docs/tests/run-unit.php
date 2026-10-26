@@ -3,20 +3,20 @@
  * Unit tests for the pure modules: front matter, alerts, sources and link resolution, manifests,
  * redirects, the block scanner. Plain PHP: `php tests/run-unit.php`.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
 // phpcs:disable
 
 require __DIR__ . '/bootstrap.php';
 
-use WordPressdotorg\Docs\Manifest;
-use WordPressdotorg\Docs\Sources;
-use WordPressdotorg\Docs\Transforms\Alerts;
-use WordPressdotorg\Docs\Transforms\Blocks;
-use WordPressdotorg\Docs\Transforms\Front_Matter;
-use WordPressdotorg\Docs\Transforms\Links;
-use WordPressdotorg\Docs\Transforms\Images;
+use WP_Docs\Manifest;
+use WP_Docs\Sources;
+use WP_Docs\Transforms\Alerts;
+use WP_Docs\Transforms\Blocks;
+use WP_Docs\Transforms\Front_Matter;
+use WP_Docs\Transforms\Links;
+use WP_Docs\Transforms\Images;
 
 $GLOBALS['wdt_passed'] = 0;
 $GLOBALS['wdt_failed'] = 0;
@@ -67,7 +67,7 @@ check( 'fm normalize title trimmed', $n['title'], 'T' );
  */
 $md  = "> [!NOTE]\n> One.\n\n> [!WARNING]\n> Two.\n";
 $out = Alerts\markdown_to_placeholders( $md );
-check( 'alerts: consecutive alerts are two placeholders', substr_count( $out, 'data-wporg-docs-alert=' ), 2 );
+check( 'alerts: consecutive alerts are two placeholders', substr_count( $out, 'data-wp-docs-alert=' ), 2 );
 check( 'alerts: types', array( strpos( $out, '"note"' ) !== false, strpos( $out, '"warning"' ) !== false ), array( true, true ) );
 
 $md  = "```\n> [!NOTE]\n> fenced\n```\n";
@@ -84,19 +84,19 @@ check( 'alerts: marker must be alone on its line', Alerts\markdown_to_placeholde
 $md = "> Plain quote\n";
 check( 'alerts: plain quote untouched', Alerts\markdown_to_placeholders( $md ), $md );
 
-$html = '<div data-wporg-docs-alert="caution"><div>nested</div>Text</div>';
+$html = '<div data-wp-docs-alert="caution"><div>nested</div>Text</div>';
 check(
 	'alerts: classic notice format, nested div balanced',
 	trim( Alerts\render_classic( $html, 'notice' ) ),
 	"<div class=\"wp-block-wporg-notice is-warning-notice\">\n<div class=\"wp-block-wporg-notice__icon\"></div>\n<div class=\"wp-block-wporg-notice__content\">\n\n<div>nested</div>Text\n\n</div></div>"
 );
-check( 'alerts: classic shortcode format', trim( Alerts\render_classic( '<div data-wporg-docs-alert="tip">Hi</div>', 'shortcode' ) ), "[tip]\n\nHi\n\n[/tip]" );
-check( 'alerts: classic callout format', trim( Alerts\render_classic( '<div data-wporg-docs-alert="important">Hi</div>', 'callout' ) ), "<div class=\"callout callout-alert\">\n\nHi\n\n</div>" );
-check( 'alerts: classic github format', trim( Alerts\render_classic( '<div data-wporg-docs-alert="note">Hi</div>', 'github' ) ), "<div class=\"markdown-alert markdown-alert-note\">\n<p class=\"markdown-alert-title\">Note</p>\n\nHi\n\n</div>" );
+check( 'alerts: classic shortcode format', trim( Alerts\render_classic( '<div data-wp-docs-alert="tip">Hi</div>', 'shortcode' ) ), "[tip]\n\nHi\n\n[/tip]" );
+check( 'alerts: classic callout format', trim( Alerts\render_classic( '<div data-wp-docs-alert="important">Hi</div>', 'callout' ) ), "<div class=\"callout callout-alert\">\n\nHi\n\n</div>" );
+check( 'alerts: classic github format', trim( Alerts\render_classic( '<div data-wp-docs-alert="note">Hi</div>', 'github' ) ), "<div class=\"markdown-alert markdown-alert-note\">\n<p class=\"markdown-alert-title\">Note</p>\n\nHi\n\n</div>" );
 
-$blocks = Blocks\convert( '<div data-wporg-docs-alert="tip"><p>A</p></div>', array( 'callout_block' => 'wporg/callout' ) );
+$blocks = Blocks\convert( '<div data-wp-docs-alert="tip"><p>A</p></div>', array( 'callout_block' => 'wporg/callout' ) );
 check( 'alerts: wporg/callout block with inner blocks', $blocks, "<!-- wp:wporg/callout {\"type\":\"tip\"} -->\n<div class=\"callout callout-tip\"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:wporg/callout -->" );
-$blocks = Blocks\convert( '<div data-wporg-docs-alert="note"><p>A</p></div>', array( 'callout_block' => 'core/group' ) );
+$blocks = Blocks\convert( '<div data-wp-docs-alert="note"><p>A</p></div>', array( 'callout_block' => 'core/group' ) );
 check( 'alerts: core/group fallback', 0 === strpos( $blocks, '<!-- wp:group {"className":"callout callout-info","layout":{"type":"constrained"}} -->' ), true );
 
 /*
@@ -110,11 +110,11 @@ $r = Sources\parse( 'https://raw.githubusercontent.com/WordPress/gutenberg/trunk
 check( 'sources: raw parses to same key', Sources\match_key( $r ), Sources\match_key( $s ) );
 $l = Sources\parse( 'content/get-started/README.md' );
 check( 'sources: repo-relative path is local', array( $l['kind'], $l['path'] ), array( 'local', 'content/get-started/README.md' ) );
-check( 'sources: local fetch url', Sources\fetch_url( $l ), 'https://wporg-docs.local/repo/content/get-started/README.md' );
+check( 'sources: local fetch url', Sources\fetch_url( $l ), 'https://wp-docs.local/repo/content/get-started/README.md' );
 check( 'sources: local url round trip', Sources\parse( Sources\fetch_url( $l ) )['path'], 'content/get-started/README.md' );
 check( 'sources: other host is null', Sources\parse( 'https://example.com/a.md' ), null );
-$aliases = array( 'ndiego/wporg-docs' => array( 'prefix' => '', 'ref' => 'trunk' ), 'WordPress/gutenberg' => array( 'prefix' => '.spokes/gutenberg/', 'ref' => 'trunk' ) );
-check( 'sources: local to github via alias', Sources\blob_url( Sources\to_github( $l, $aliases ) ), 'https://github.com/ndiego/wporg-docs/blob/trunk/content/get-started/README.md' );
+$aliases = array( 'ndiego/wordpress-documentation' => array( 'prefix' => '', 'ref' => 'trunk' ), 'WordPress/gutenberg' => array( 'prefix' => '.spokes/gutenberg/', 'ref' => 'trunk' ) );
+check( 'sources: local to github via alias', Sources\blob_url( Sources\to_github( $l, $aliases ) ), 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/get-started/README.md' );
 check( 'sources: spoke prefix wins', Sources\blob_url( Sources\to_github( Sources\parse( '.spokes/gutenberg/docs/a.md' ), $aliases ) ), 'https://github.com/WordPress/gutenberg/blob/trunk/docs/a.md' );
 check( 'sources: aliased github key equals local key', Sources\match_key( $s, $aliases ), 'local:.spokes/gutenberg/docs/how-to.md' );
 check( 'sources: normalize climbing above root', Sources\normalize_path( '../x.md' ), null );
@@ -124,7 +124,7 @@ check( 'sources: issue url carries page and path', strpos( $issue, 'https://gith
 /*
  * (d) Link resolution.
  */
-$base = Sources\parse( 'https://github.com/ndiego/wporg-docs/blob/trunk/content/blocks/image.md' );
+$base = Sources\parse( 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/blocks/image.md' );
 $cases = array(
 	'./gallery.md'          => 'content/blocks/gallery.md',
 	'gallery.md#caption'    => 'content/blocks/gallery.md',
@@ -156,7 +156,7 @@ $html   = Links\rewrite(
 check(
 	'links: rewrite',
 	$html,
-	'<p><a href="https://wordpress.org/docs/blocks/gallery/#caption">g</a> <a href="https://wordpress.org/docs/themes/">t</a> <a href="nope.md">n</a> <a href="https://github.com/ndiego/wporg-docs/blob/trunk/content/examples/x.php">f</a> <a href="#local">l</a></p><pre><code>&lt;a href="gallery.md"&gt;</code></pre>'
+	'<p><a href="https://wordpress.org/docs/blocks/gallery/#caption">g</a> <a href="https://wordpress.org/docs/themes/">t</a> <a href="nope.md">n</a> <a href="https://github.com/ndiego/wordpress-documentation/blob/trunk/content/examples/x.php">f</a> <a href="#local">l</a></p><pre><code>&lt;a href="gallery.md"&gt;</code></pre>'
 );
 check( 'links: unresolved reported', $unres, array( 'nope.md' ) );
 
@@ -179,23 +179,23 @@ check( 'images: unresolvable reported', $failed, array( '../../../../escape.png'
 $result = Manifest\normalize(
 	array(
 		'themes' => array(
-			'themes'           => array( 'title' => 'Themes', 'slug' => 'themes', 'parent' => null, 'order' => 10, 'markdown_source' => 'https://github.com/ndiego/wporg-docs/blob/trunk/content/themes/README.md', 'id' => 'themes', 'section' => 'themes' ),
-			'block-themes'     => array( 'title' => 'Block themes', 'slug' => 'block-themes', 'parent' => null, 'order' => 20, 'markdown_source' => 'https://github.com/ndiego/wporg-docs/blob/trunk/content/themes/block-themes.md', 'id' => 'block-themes', 'section' => 'themes' ),
-			'theme-json'       => array( 'title' => 'theme.json', 'slug' => 'theme-json', 'parent' => 'block-themes', 'order' => 10, 'markdown_source' => 'content/themes/theme-json.md', 'source_url' => 'https://github.com/ndiego/wporg-docs/blob/trunk/content/themes/theme-json.md', 'id' => 'theme-json', 'section' => 'themes' ),
-			'orphan'           => array( 'title' => 'Orphan', 'slug' => 'orphan', 'parent' => 'nowhere', 'markdown_source' => 'https://github.com/ndiego/wporg-docs/blob/trunk/content/x.md', 'section' => 'themes' ),
-			'Bad_Slug'         => array( 'title' => 'Bad', 'slug' => 'Bad_Slug', 'parent' => null, 'markdown_source' => 'https://github.com/ndiego/wporg-docs/blob/trunk/content/y.md' ),
+			'themes'           => array( 'title' => 'Themes', 'slug' => 'themes', 'parent' => null, 'order' => 10, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/themes/README.md', 'id' => 'themes', 'section' => 'themes' ),
+			'block-themes'     => array( 'title' => 'Block themes', 'slug' => 'block-themes', 'parent' => null, 'order' => 20, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/themes/block-themes.md', 'id' => 'block-themes', 'section' => 'themes' ),
+			'theme-json'       => array( 'title' => 'theme.json', 'slug' => 'theme-json', 'parent' => 'block-themes', 'order' => 10, 'markdown_source' => 'content/themes/theme-json.md', 'source_url' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/themes/theme-json.md', 'id' => 'theme-json', 'section' => 'themes' ),
+			'orphan'           => array( 'title' => 'Orphan', 'slug' => 'orphan', 'parent' => 'nowhere', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/x.md', 'section' => 'themes' ),
+			'Bad_Slug'         => array( 'title' => 'Bad', 'slug' => 'Bad_Slug', 'parent' => null, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/y.md' ),
 		),
 	)
 );
 check( 'manifest: keys become paths, section mapping applied', array_keys( $result['entries'] ), array( 'themes', 'themes/block-themes', 'themes/block-themes/theme-json' ) );
 check( 'manifest: parent remapped to path', $result['entries']['themes/block-themes/theme-json']['parent'], 'themes/block-themes' );
-check( 'manifest: local source canonicalised', $result['entries']['themes/block-themes/theme-json']['markdown_source'], 'https://wporg-docs.local/repo/content/themes/theme-json.md' );
-check( 'manifest: source_url kept for provenance', Sources\blob_url( $result['entries']['themes/block-themes/theme-json']['_github'] ), 'https://github.com/ndiego/wporg-docs/blob/trunk/content/themes/theme-json.md' );
+check( 'manifest: local source canonicalised', $result['entries']['themes/block-themes/theme-json']['markdown_source'], 'https://wp-docs.local/repo/content/themes/theme-json.md' );
+check( 'manifest: source_url kept for provenance', Sources\blob_url( $result['entries']['themes/block-themes/theme-json']['_github'] ), 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/themes/theme-json.md' );
 check( 'manifest: two warnings (orphan, bad slug)', count( $result['warnings'] ), 2 );
-$smap = Manifest\source_map( $result['entries'], array( 'ndiego/wporg-docs' => array( 'prefix' => '', 'ref' => 'trunk' ) ) );
+$smap = Manifest\source_map( $result['entries'], array( 'ndiego/wordpress-documentation' => array( 'prefix' => '', 'ref' => 'trunk' ) ) );
 check( 'manifest: local entry matchable by local path', $smap['local:content/themes/theme-json.md'] ?? null, 'themes/block-themes/theme-json' );
-$lookup = Manifest\lookup_callback( $result['entries'], $smap, array( 'ndiego/wporg-docs' => array( 'prefix' => '', 'ref' => 'trunk' ) ), 'https://wordpress.org/docs/' );
-check( 'manifest: blob link to local entry resolves', $lookup( Sources\parse( 'https://github.com/ndiego/wporg-docs/blob/6.9-branch/content/themes/theme-json.md' ) ), 'https://wordpress.org/docs/themes/block-themes/theme-json/' );
+$lookup = Manifest\lookup_callback( $result['entries'], $smap, array( 'ndiego/wordpress-documentation' => array( 'prefix' => '', 'ref' => 'trunk' ) ), 'https://wordpress.org/docs/' );
+check( 'manifest: blob link to local entry resolves', $lookup( Sources\parse( 'https://github.com/ndiego/wordpress-documentation/blob/6.9-branch/content/themes/theme-json.md' ) ), 'https://wordpress.org/docs/themes/block-themes/theme-json/' );
 
 $dupe = Manifest\normalize(
 	array(

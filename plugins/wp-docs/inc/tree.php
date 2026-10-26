@@ -4,7 +4,7 @@
  * valid for one import (keyed by the time in the `wp_docs_last_import` option). The theme's sidebar, home,
  * section cards, breadcrumbs and prev/next all read it; so do llms.txt, llms-full.txt and docs/index.json.
  *
- * Ported from the hub theme's `blocks/sidebar/tree.php` (ndiego/wporg-docs), without tabs.
+ * Ported from the hub theme's `blocks/sidebar/tree.php` (ndiego/wordpress-documentation), without tabs.
  *
  * @package WP_Docs
  */

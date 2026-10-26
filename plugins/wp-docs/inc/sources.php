@@ -6,19 +6,19 @@
  * - a GitHub blob URL, `https://github.com/<owner>/<repo>/blob/<ref>/<path>` (the contract form);
  * - a raw URL, `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>`;
  * - a repository-relative path, `content/...` or `.spokes/<spoke>/...` (the offline manifests under
- *   `manifest/local/`), which the plugin turns into a local URL `https://wporg-docs.local/repo/<path>`
+ *   `manifest/local/`), which the plugin turns into a local URL `https://wp-docs.local/repo/<path>`
  *   and serves from disk (see local-sources.php).
  *
  * Refs containing a slash are not supported (the ref is the segment after `blob/`).
  *
  * Pure PHP, no WordPress dependency.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs\Sources;
+namespace WP_Docs\Sources;
 
-const LOCAL_BASE = 'https://wporg-docs.local/repo/';
+const LOCAL_BASE = 'https://wp-docs.local/repo/';
 
 /**
  * Parse a source URL.

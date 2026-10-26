@@ -10,19 +10,19 @@
  * The conversion runs in two steps so that consecutive alerts can never merge:
  *
  * 1. Before the Markdown is parsed (`wporg_markdown_before_transform`), every top-level alert outside a
- *    code fence becomes a Markdown Extra block `<div data-wporg-docs-alert="note" markdown="1">`. The
+ *    code fence becomes a Markdown Extra block `<div data-wp-docs-alert="note" markdown="1">`. The
  *    parser converts the alert body as ordinary Markdown inside it.
  * 2. After parsing, `render_classic()` turns those divs into the notice markup the site uses, or the
  *    blocks converter (blocks.php) turns them into notice blocks.
  *
  * Pure PHP, no WordPress dependency.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs\Transforms\Alerts;
+namespace WP_Docs\Transforms\Alerts;
 
-const ATTRIBUTE = 'data-wporg-docs-alert';
+const ATTRIBUTE = 'data-wp-docs-alert';
 
 /**
  * Default GitHub alert -> WordPress.org notice type map.

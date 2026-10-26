@@ -20,12 +20,12 @@
  *
  * Pure PHP, no WordPress dependency.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs\Manifest;
+namespace WP_Docs\Manifest;
 
-use WordPressdotorg\Docs\Sources;
+use WP_Docs\Sources;
 
 /**
  * Normalise and merge one or more decoded manifests.

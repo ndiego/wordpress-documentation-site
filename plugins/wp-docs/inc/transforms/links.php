@@ -18,12 +18,12 @@
  * Uses WP_HTML_Tag_Processor (WordPress 6.2+), so `href="..."` text inside escaped code samples is never
  * touched. No other WordPress dependency.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs\Transforms\Links;
+namespace WP_Docs\Transforms\Links;
 
-use WordPressdotorg\Docs\Sources;
+use WP_Docs\Sources;
 
 /**
  * Rewrite links.

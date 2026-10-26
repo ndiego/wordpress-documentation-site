@@ -15,15 +15,15 @@
  *
  * Pure PHP apart from `wpautop()` (core formatting.php, loadable without WordPress).
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs\Pipeline;
+namespace WP_Docs\Pipeline;
 
-use WordPressdotorg\Docs\Transforms\Alerts;
-use WordPressdotorg\Docs\Transforms\Blocks;
-use WordPressdotorg\Docs\Transforms\Images;
-use WordPressdotorg\Docs\Transforms\Links;
+use WP_Docs\Transforms\Alerts;
+use WP_Docs\Transforms\Blocks;
+use WP_Docs\Transforms\Images;
+use WP_Docs\Transforms\Links;
 
 /**
  * Default options. Each transform can be switched off.
@@ -108,7 +108,7 @@ function after_parse( string $html, array $options, array &$report = array() ): 
 
 /**
  * The whole conversion for one file, mirroring the stock importer's steps (class-importer.php lines
- * 481-501) with this plugin's hooks in place. Used by the tests and `wp wporg-docs convert`; the
+ * 481-501) with this plugin's hooks in place. Used by the tests and `wp wp-docs convert`; the
  * importer itself runs the real stock code with the hooks.
  *
  * @param string $raw     Raw file contents.
@@ -117,7 +117,7 @@ function after_parse( string $html, array $options, array &$report = array() ): 
  * @return string Post content.
  */
 function convert_file( string $raw, array $options = array(), array &$report = array() ): string {
-	list( $front_matter, $markdown ) = \WordPressdotorg\Docs\Transforms\Front_Matter\split( $raw );
+	list( $front_matter, $markdown ) = \WP_Docs\Transforms\Front_Matter\split( $raw );
 
 	// The stock importer's own strip (line 483) runs on the already-stripped body.
 	$markdown = preg_replace( '#^---(.+)---#Us', '', $markdown );

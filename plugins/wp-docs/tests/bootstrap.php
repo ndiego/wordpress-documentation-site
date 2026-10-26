@@ -7,12 +7,12 @@
  * (run tests/fetch-deps.sh once), with stubs for the few runtime functions they call. Then loads the
  * plugin's pure modules.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
 // phpcs:disable
 
-$deps = getenv( 'WPORG_DOCS_TEST_DEPS' ) ?: __DIR__ . '/.deps';
+$deps = getenv( 'WP_DOCS_TEST_DEPS' ) ?: __DIR__ . '/.deps';
 if ( ! is_dir( "$deps/wordpress" ) || ! is_dir( "$deps/jetpack" ) ) {
 	fwrite( STDERR, "Missing test dependencies. Run tests/fetch-deps.sh first.\n" );
 	exit( 2 );
@@ -22,11 +22,11 @@ define( 'ABSPATH', "$deps/wordpress/" );
 define( 'WPINC', 'wp-includes' );
 define( 'JETPACK__PLUGIN_DIR', "$deps/jetpack" );
 
-$GLOBALS['wporg_docs_test_filters'] = array();
+$GLOBALS['wp_docs_test_filters'] = array();
 
 function apply_filters( $hook, $value, ...$args ) {
-	if ( isset( $GLOBALS['wporg_docs_test_filters'][ $hook ] ) ) {
-		return ( $GLOBALS['wporg_docs_test_filters'][ $hook ] )( $value, ...$args );
+	if ( isset( $GLOBALS['wp_docs_test_filters'][ $hook ] ) ) {
+		return ( $GLOBALS['wp_docs_test_filters'][ $hook ] )( $value, ...$args );
 	}
 	return $value;
 }

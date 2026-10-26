@@ -16,12 +16,12 @@
  * This file holds the pure rewrite; the fetch and sideload are in the importer
  * (Importer::import_image()), passed in as a callback.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs\Transforms\Images;
+namespace WP_Docs\Transforms\Images;
 
-use WordPressdotorg\Docs\Sources;
+use WP_Docs\Sources;
 
 /**
  * Rewrite relative image sources.

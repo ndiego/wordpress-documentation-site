@@ -1,11 +1,11 @@
 <?php
 /**
- * WP-CLI: `wp wporg-docs import|status|convert`.
+ * WP-CLI: `wp wp-docs import|status|convert`.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 use WP_CLI;
 use WP_CLI\Utils;
@@ -34,13 +34,13 @@ class CLI {
 	 *
 	 * [--local]
 	 * : Use the offline manifests written by scripts/assemble.py (.spokes/manifest/ in the repository
-	 * checkout at WPORG_DOCS_REPO_PATH) and read files from disk.
+	 * checkout at WP_DOCS_REPO_PATH) and read files from disk.
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp wporg-docs import --all
-	 *     wp wporg-docs import --manifest=themes --force
-	 *     wp wporg-docs import --all --local
+	 *     wp wp-docs import --all
+	 *     wp wp-docs import --manifest=themes --force
+	 *     wp wp-docs import --all --local
 	 *
 	 * @param array $args       Positional.
 	 * @param array $assoc_args Named.
@@ -105,7 +105,7 @@ class CLI {
 		$sections = array();
 		$removed  = array();
 		foreach ( $query->posts as $post ) {
-			$section = (string) get_post_meta( $post->ID, '_wporg_docs_section', true );
+			$section = (string) get_post_meta( $post->ID, '_wp_docs_section', true );
 			$section = '' === $section ? '(none)' : $section;
 			if ( ! isset( $sections[ $section ] ) ) {
 				$sections[ $section ] = array(
@@ -122,16 +122,16 @@ class CLI {
 			} else {
 				++$sections[ $section ]['draft'];
 			}
-			$mode = (string) get_post_meta( $post->ID, '_wporg_docs_output_mode', true );
+			$mode = (string) get_post_meta( $post->ID, '_wp_docs_output_mode', true );
 			if ( isset( $sections[ $section ][ $mode ] ) ) {
 				++$sections[ $section ][ $mode ];
 			}
-			$flag = (string) get_post_meta( $post->ID, '_wporg_docs_removed', true );
+			$flag = (string) get_post_meta( $post->ID, '_wp_docs_removed', true );
 			if ( '' !== $flag ) {
 				++$sections[ $section ]['removed'];
 				$removed[] = array(
 					'post'    => $post->ID,
-					'path'    => (string) get_post_meta( $post->ID, '_wporg_docs_path', true ),
+					'path'    => (string) get_post_meta( $post->ID, '_wp_docs_path', true ),
 					'removed' => $flag,
 				);
 			}

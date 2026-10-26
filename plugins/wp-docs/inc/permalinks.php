@@ -1,17 +1,17 @@
 <?php
 /**
  * Designed URLs: a page's URL is `/docs/<path>/` from the manifest `path` field (stored in
- * `_wporg_docs_path`), independent of where the page sits in the tree. `post_parent` still comes from
+ * `_wp_docs_path`), independent of where the page sits in the tree. `post_parent` still comes from
  * `parent` and drives the sidebar.
  *
  * - `post_type_link` returns `home_url( '/docs/<path>/' )` for published pages that have a path.
  * - `parse_request` resolves `/docs/<path>/` to the page with that path; when no path matches, the
  *   normal hierarchical lookup runs unchanged.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 use WP;
 use WP_Post;
@@ -23,7 +23,7 @@ defined( 'WPINC' ) || die();
  */
 class Permalinks {
 
-	const OPTION = 'wporg_docs_paths';
+	const OPTION = 'wp_docs_paths';
 
 	/**
 	 * Hook up.
@@ -42,7 +42,7 @@ class Permalinks {
 		global $wpdb;
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
-				"SELECT pm.post_id, pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = '_wporg_docs_path' AND p.post_type = %s AND p.post_status = 'publish' ORDER BY p.ID",
+				"SELECT pm.post_id, pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = '_wp_docs_path' AND p.post_type = %s AND p.post_status = 'publish' ORDER BY p.ID",
 				POST_TYPE
 			)
 		);
@@ -68,7 +68,7 @@ class Permalinks {
 		if ( POST_TYPE !== $post->post_type || 'publish' !== $post->post_status || ! get_option( 'permalink_structure' ) ) {
 			return $link;
 		}
-		$path = trim( (string) get_post_meta( $post->ID, '_wporg_docs_path', true ), '/' );
+		$path = trim( (string) get_post_meta( $post->ID, '_wp_docs_path', true ), '/' );
 		return '' === $path ? $link : home_url( user_trailingslashit( '/docs/' . $path ) );
 	}
 

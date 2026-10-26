@@ -2,16 +2,16 @@
 /**
  * The hub importer: a subclass of the WordPress.org Markdown importer (`wporg-markdown`).
  *
- * Imports `manifest/*.json` into the `wporg-docs` post type. Everything the stock importer does is kept
+ * Imports `manifest/*.json` into the `wp-docs` post type. Everything the stock importer does is kept
  * (manifest stage, Markdown stage, ETags, title from the first H1, kses); this class only fills in the
  * abstract methods, overrides four protected methods with calls to the parent, and hooks the
  * transforms into the stock filters. See IMPORTER-CHANGES.md for what each change does and which ones
  * would be better upstream.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 use WP_CLI;
 use WP_Error;
@@ -35,12 +35,12 @@ class Importer extends Markdown_Importer {
 	/**
 	 * Cron hook for the full, ordered import (manifest stage, then Markdown stage).
 	 */
-	const CRON_HOOK = 'wporg_docs_import';
+	const CRON_HOOK = 'wp_docs_import';
 
 	/**
 	 * Option holding the last import summary.
 	 */
-	const LAST_IMPORT_OPTION = 'wporg_docs_last_import';
+	const LAST_IMPORT_OPTION = 'wp_docs_last_import';
 
 	/**
 	 * Singleton.
@@ -127,7 +127,7 @@ class Importer extends Markdown_Importer {
 
 		// The stock Editor: "maintained on GitHub" warning in wp-admin and the front-end edit link.
 		// Its title filter is removed: it appends an icon from the wporg-cli plugin, and the theme
-		// renders its own page links (wporg_docs_page_links()).
+		// renders its own page links (wp_docs_page_links()).
 		$editor = new Editor( $this );
 		$editor->init();
 		remove_filter( 'the_title', array( $editor, 'filter_the_title_edit_link' ), 10 );
@@ -325,7 +325,7 @@ class Importer extends Markdown_Importer {
 		 *
 		 * @param string|false $interval Schedule name. Default '15_minutes'.
 		 */
-		$interval = apply_filters( 'wporg_docs_cron_interval', '15_minutes' );
+		$interval = apply_filters( 'wp_docs_cron_interval', '15_minutes' );
 		if ( ! $interval ) {
 			wp_clear_scheduled_hook( self::CRON_HOOK );
 			return;
@@ -374,7 +374,7 @@ class Importer extends Markdown_Importer {
 	 * @return bool
 	 */
 	protected function update_post_from_manifest_doc( $post_id, $doc ) {
-		$existing_id = (string) get_post_meta( $post_id, '_wporg_docs_id', true );
+		$existing_id = (string) get_post_meta( $post_id, '_wp_docs_id', true );
 		if ( '' !== $existing_id && isset( $doc['id'] ) && $existing_id !== (string) $doc['id'] ) {
 			$this->log( "Entry {$doc['_key']} matched post {$post_id} (page {$existing_id}) by slug only; creating a new post instead.", 'warning' );
 			$manifest = Local_Sources::get_manifest_payload( $this->manifest_url );
@@ -407,7 +407,7 @@ class Importer extends Markdown_Importer {
 		 * @param bool $wins    Default true.
 		 * @param int  $post_id Post ID.
 		 */
-		if ( ! empty( $entry['title'] ) && apply_filters( 'wporg_docs_manifest_title_wins', true, $post_id ) ) {
+		if ( ! empty( $entry['title'] ) && apply_filters( 'wp_docs_manifest_title_wins', true, $post_id ) ) {
 			$title = (string) $entry['title'];
 		} elseif ( null === $title && $this->current && ! empty( $this->current['front_matter']['title'] ) ) {
 			$title = $this->current['front_matter']['title'];
@@ -458,7 +458,7 @@ class Importer extends Markdown_Importer {
 
 	/**
 	 * Existing posts are keyed by the manifest key of their page id, so the stock importer's lookup
-	 * (line 169) matches by `_wporg_docs_id`: slugs and paths can change without creating a new post.
+	 * (line 169) matches by `_wp_docs_id`: slugs and paths can change without creating a new post.
 	 * Posts whose id is not in the manifests get a key that matches nothing; posts with no id (pages
 	 * adopted from an earlier site) keep the stock permalink-path key.
 	 *
@@ -466,11 +466,11 @@ class Importer extends Markdown_Importer {
 	 * @return array
 	 */
 	protected function get_existing_for_post( WP_Post $post ) {
-		$id = (string) get_post_meta( $post->ID, '_wporg_docs_id', true );
+		$id = (string) get_post_meta( $post->ID, '_wp_docs_id', true );
 		if ( '' === $id ) {
 			return parent::get_existing_for_post( $post );
 		}
-		$key = $this->keys_by_id[ $id ] ?? 'wporg-docs-unmatched/' . $post->ID;
+		$key = $this->keys_by_id[ $id ] ?? 'wp-docs-unmatched/' . $post->ID;
 		return array( $key, array( 'post_id' => $post->ID ) );
 	}
 
@@ -492,7 +492,7 @@ class Importer extends Markdown_Importer {
 				'post_status'    => 'publish',
 				'posts_per_page' => 1,
 				'fields'         => 'ids',
-				'meta_key'       => '_wporg_docs_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_key'       => '_wp_docs_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 				'meta_value'     => $id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 			)
 		);
@@ -572,7 +572,7 @@ class Importer extends Markdown_Importer {
 		 * @param bool $enabled Default true.
 		 * @param int  $post_id Post being imported.
 		 */
-		if ( ! apply_filters( 'wporg_docs_transform_front_matter', true, $this->current['post_id'] ) ) {
+		if ( ! apply_filters( 'wp_docs_transform_front_matter', true, $this->current['post_id'] ) ) {
 			return $response;
 		}
 
@@ -642,7 +642,7 @@ class Importer extends Markdown_Importer {
 		if ( ! $check || ! $this->current ) {
 			return $check;
 		}
-		return get_post_meta( $this->current['post_id'], '_wporg_docs_transform', true ) === $this->transform_signature();
+		return get_post_meta( $this->current['post_id'], '_wp_docs_transform', true ) === $this->transform_signature();
 	}
 
 	/**
@@ -680,7 +680,7 @@ class Importer extends Markdown_Importer {
 		if ( is_admin() || get_post_type( $post_id ) !== $this->get_post_type() ) {
 			return $link;
 		}
-		$edit = (string) get_post_meta( $post_id, '_wporg_docs_edit_url', true );
+		$edit = (string) get_post_meta( $post_id, '_wp_docs_edit_url', true );
 		return '' !== $edit ? $edit : $link;
 	}
 
@@ -710,16 +710,16 @@ class Importer extends Markdown_Importer {
 		$redirects['paths'] = array_values( array_diff( $redirects['paths'], array( $own ) ) );
 
 		$meta = array(
-			'_wporg_docs_id'                => (string) ( $doc['id'] ?? $doc['_key'] ?? '' ),
-			'_wporg_docs_section'           => (string) ( $doc['section'] ?? strtok( (string) ( $doc['_key'] ?? '' ), '/' ) ),
-			'_wporg_docs_audience'          => wp_json_encode( $audience ),
-			'_wporg_docs_applies_to'        => wp_json_encode( array_values( array_map( 'strval', $applies_to ) ) ),
-			'_wporg_docs_generated'         => $generated ? wp_json_encode( $generated ) : '',
-			'_wporg_docs_tab'               => (string) ( $doc['tab'] ?? '' ),
-			'_wporg_docs_manifest'          => (string) ( $doc['_manifest'] ?? '' ),
-			'_wporg_docs_path'              => (string) ( $doc['_path'] ?? $doc['_key'] ?? '' ),
-			'_wporg_docs_redirect_from'     => wp_json_encode( $redirects['paths'] ),
-			'_wporg_docs_redirect_external' => wp_json_encode( $redirects['external'] ),
+			'_wp_docs_id'                => (string) ( $doc['id'] ?? $doc['_key'] ?? '' ),
+			'_wp_docs_section'           => (string) ( $doc['section'] ?? strtok( (string) ( $doc['_key'] ?? '' ), '/' ) ),
+			'_wp_docs_audience'          => wp_json_encode( $audience ),
+			'_wp_docs_applies_to'        => wp_json_encode( array_values( array_map( 'strval', $applies_to ) ) ),
+			'_wp_docs_generated'         => $generated ? wp_json_encode( $generated ) : '',
+			'_wp_docs_tab'               => (string) ( $doc['tab'] ?? '' ),
+			'_wp_docs_manifest'          => (string) ( $doc['_manifest'] ?? '' ),
+			'_wp_docs_path'              => (string) ( $doc['_path'] ?? $doc['_key'] ?? '' ),
+			'_wp_docs_redirect_from'     => wp_json_encode( $redirects['paths'] ),
+			'_wp_docs_redirect_external' => wp_json_encode( $redirects['external'] ),
 		);
 		$meta = array_merge( $meta, $this->link_meta( $post_id ) );
 
@@ -743,17 +743,17 @@ class Importer extends Markdown_Importer {
 		}
 		if ( ! $github ) {
 			return array(
-				'_wporg_docs_source_url' => '',
-				'_wporg_docs_edit_url'   => '',
-				'_wporg_docs_issue_url'  => '',
+				'_wp_docs_source_url' => '',
+				'_wp_docs_edit_url'   => '',
+				'_wp_docs_issue_url'  => '',
 			);
 		}
-		$commit = (string) get_post_meta( $post_id, '_wporg_docs_commit', true );
+		$commit = (string) get_post_meta( $post_id, '_wp_docs_commit', true );
 
 		return array(
-			'_wporg_docs_source_url' => Sources\blob_url( $github ),
-			'_wporg_docs_edit_url'   => Sources\edit_url( $github ),
-			'_wporg_docs_issue_url'  => Sources\issue_url( $github, (string) get_permalink( $post_id ), get_the_title( $post_id ), '' !== $commit ? $commit : null ),
+			'_wp_docs_source_url' => Sources\blob_url( $github ),
+			'_wp_docs_edit_url'   => Sources\edit_url( $github ),
+			'_wp_docs_issue_url'  => Sources\issue_url( $github, (string) get_permalink( $post_id ), get_the_title( $post_id ), '' !== $commit ? $commit : null ),
 		);
 	}
 
@@ -766,13 +766,13 @@ class Importer extends Markdown_Importer {
 		$github = ! empty( $this->current['doc']['_github'] ) ? $this->current['doc']['_github'] : $this->current['source'];
 		$commit = $github ? fetch_commit_sha( $github ) : null;
 		if ( $commit ) {
-			update_post_meta( $post_id, '_wporg_docs_commit', $commit );
+			update_post_meta( $post_id, '_wp_docs_commit', $commit );
 		} else {
-			delete_post_meta( $post_id, '_wporg_docs_commit' );
+			delete_post_meta( $post_id, '_wp_docs_commit' );
 		}
-		update_post_meta( $post_id, '_wporg_docs_imported', gmdate( 'c' ) );
-		update_post_meta( $post_id, '_wporg_docs_transform', $this->transform_signature() );
-		update_post_meta( $post_id, '_wporg_docs_output_mode', $this->current['mode'] ?? '' );
+		update_post_meta( $post_id, '_wp_docs_imported', gmdate( 'c' ) );
+		update_post_meta( $post_id, '_wp_docs_transform', $this->transform_signature() );
+		update_post_meta( $post_id, '_wp_docs_output_mode', $this->current['mode'] ?? '' );
 
 		// Front matter can fill fields the manifest left empty, and the issue URL carries the commit.
 		$this->write_manifest_meta( $post_id, $this->current['doc'] );
@@ -814,7 +814,7 @@ class Importer extends Markdown_Importer {
 				'post_status'    => 'inherit',
 				'fields'         => 'ids',
 				'posts_per_page' => 1,
-				'meta_key'       => '_wporg_docs_image_hash', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_key'       => '_wp_docs_image_hash', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 				'meta_value'     => $hash, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 			)
 		);
@@ -843,8 +843,8 @@ class Importer extends Markdown_Importer {
 				$this->log( "Sideload of {$target['path']} failed: " . $id->get_error_message(), 'warning' );
 				return null;
 			}
-			update_post_meta( $id, '_wporg_docs_image_hash', $hash );
-			update_post_meta( $id, '_wporg_docs_image_source', Sources\canonical_url( $target ) );
+			update_post_meta( $id, '_wp_docs_image_hash', $hash );
+			update_post_meta( $id, '_wp_docs_image_source', Sources\canonical_url( $target ) );
 			$this->log( "Imported image {$target['path']} as attachment {$id}." );
 		}
 
@@ -867,7 +867,7 @@ class Importer extends Markdown_Importer {
 	 */
 
 	/**
-	 * Pages that left the manifest become drafts with a `_wporg_docs_removed` flag. Never deleted.
+	 * Pages that left the manifest become drafts with a `_wp_docs_removed` flag. Never deleted.
 	 *
 	 * @param string[] $names    Manifests imported in this run.
 	 * @param array    $selected Their entries.
@@ -879,7 +879,7 @@ class Importer extends Markdown_Importer {
 		 *
 		 * @param bool $enabled Default true.
 		 */
-		if ( ! apply_filters( 'wporg_docs_handle_removed', true ) ) {
+		if ( ! apply_filters( 'wp_docs_handle_removed', true ) ) {
 			return array();
 		}
 
@@ -896,7 +896,7 @@ class Importer extends Markdown_Importer {
 				'no_found_rows'  => true,
 				'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 					array(
-						'key'     => '_wporg_docs_manifest',
+						'key'     => '_wp_docs_manifest',
 						'value'   => $names,
 						'compare' => 'IN',
 					),
@@ -906,7 +906,7 @@ class Importer extends Markdown_Importer {
 
 		$removed = array();
 		foreach ( $query->posts as $post ) {
-			$id = (string) get_post_meta( $post->ID, '_wporg_docs_id', true );
+			$id = (string) get_post_meta( $post->ID, '_wp_docs_id', true );
 			if ( isset( $ids[ $id ] ) ) {
 				continue;
 			}
@@ -916,8 +916,8 @@ class Importer extends Markdown_Importer {
 					'post_status' => 'draft',
 				)
 			);
-			update_post_meta( $post->ID, '_wporg_docs_removed', gmdate( 'c' ) );
-			$path      = (string) get_post_meta( $post->ID, '_wporg_docs_path', true );
+			update_post_meta( $post->ID, '_wp_docs_removed', gmdate( 'c' ) );
+			$path      = (string) get_post_meta( $post->ID, '_wp_docs_path', true );
 			$removed[] = $path ? $path : (string) $post->ID;
 			$this->log( "Unpublished {$path} (post {$post->ID}): no longer in the manifest.", 'warning' );
 		}
@@ -942,11 +942,11 @@ class Importer extends Markdown_Importer {
 					'fields'         => 'ids',
 					'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 						array(
-							'key'   => '_wporg_docs_id',
+							'key'   => '_wp_docs_id',
 							'value' => (string) $doc['id'],
 						),
 						array(
-							'key'     => '_wporg_docs_removed',
+							'key'     => '_wp_docs_removed',
 							'compare' => 'EXISTS',
 						),
 					),
@@ -959,7 +959,7 @@ class Importer extends Markdown_Importer {
 						'post_status' => 'publish',
 					)
 				);
-				delete_post_meta( $posts[0], '_wporg_docs_removed' );
+				delete_post_meta( $posts[0], '_wp_docs_removed' );
 				$this->log( "Republished {$doc['_key']} (post {$posts[0]}): back in the manifest." );
 				++$restored;
 			}
@@ -992,21 +992,21 @@ class Importer extends Markdown_Importer {
 			 * @param bool $enabled Default true.
 			 * @param int  $post_id Post being imported.
 			 */
-			'alerts'         => (bool) apply_filters( 'wporg_docs_transform_alerts', true, $post_id ),
+			'alerts'         => (bool) apply_filters( 'wp_docs_transform_alerts', true, $post_id ),
 			/**
 			 * Filters whether links to Markdown files are rewritten to site URLs (transform d).
 			 *
 			 * @param bool $enabled Default true.
 			 * @param int  $post_id Post being imported.
 			 */
-			'links'          => (bool) apply_filters( 'wporg_docs_transform_links', true, $post_id ),
+			'links'          => (bool) apply_filters( 'wp_docs_transform_links', true, $post_id ),
 			/**
 			 * Filters whether repository images are sideloaded (transform c).
 			 *
 			 * @param bool $enabled Default true.
 			 * @param int  $post_id Post being imported.
 			 */
-			'images'         => (bool) apply_filters( 'wporg_docs_transform_images', true, $post_id ),
+			'images'         => (bool) apply_filters( 'wp_docs_transform_images', true, $post_id ),
 			'mode'           => output_mode( $post_id ),
 			/**
 			 * Filters the classic-mode callout markup: github (GitHub's `markdown-alert` markup),
@@ -1016,21 +1016,21 @@ class Importer extends Markdown_Importer {
 			 * @param string $format  Default 'github'.
 			 * @param int    $post_id Post being imported.
 			 */
-			'classic_format' => (string) apply_filters( 'wporg_docs_classic_callout_format', 'github', $post_id ),
+			'classic_format' => (string) apply_filters( 'wp_docs_classic_callout_format', 'github', $post_id ),
 			/**
 			 * Filters the blocks-mode callout block: wporg/notice, wporg/callout or core/group.
 			 *
 			 * @param string $block   Default 'wporg/notice'.
 			 * @param int    $post_id Post being imported.
 			 */
-			'callout_block'  => (string) apply_filters( 'wporg_docs_callout_block', 'wporg/notice', $post_id ),
+			'callout_block'  => (string) apply_filters( 'wp_docs_callout_block', 'wporg/notice', $post_id ),
 			/**
 			 * Filters the GitHub alert type to notice type map.
 			 *
 			 * @param array $map     note, tip, important, warning, caution => info, tip, alert, alert, warning.
 			 * @param int   $post_id Post being imported.
 			 */
-			'type_map'       => (array) apply_filters( 'wporg_docs_alert_type_map', Transforms\Alerts\default_type_map(), $post_id ),
+			'type_map'       => (array) apply_filters( 'wp_docs_alert_type_map', Transforms\Alerts\default_type_map(), $post_id ),
 			'base'           => $this->current ? $this->current['source'] : null,
 			'lookup'         => Manifest\lookup_callback( $entries, $map, $aliases, $base ),
 			'import_image'   => array( $this, 'import_image' ),
@@ -1063,7 +1063,7 @@ class Importer extends Markdown_Importer {
 			'strval',
 			$wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$wpdb->prepare(
-					"SELECT pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = '_wporg_docs_path' AND p.post_type = %s AND p.post_status = 'publish'",
+					"SELECT pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = '_wp_docs_path' AND p.post_type = %s AND p.post_status = 'publish'",
 					$this->get_post_type()
 				)
 			)
@@ -1083,7 +1083,7 @@ class Importer extends Markdown_Importer {
 				'post_type'      => $this->get_post_type(),
 				'post_status'    => 'publish',
 				'posts_per_page' => 1,
-				'meta_key'       => '_wporg_docs_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_key'       => '_wp_docs_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 				'meta_value'     => (string) $doc['id'], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 			)
 		);
@@ -1107,7 +1107,7 @@ class Importer extends Markdown_Importer {
 		if ( class_exists( 'WP_CLI' ) ) {
 			'warning' === $level ? WP_CLI::warning( $message ) : WP_CLI::log( $message );
 		} elseif ( 'warning' === $level && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( 'wporg-docs: ' . $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( 'wp-docs: ' . $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		}
 	}
 
@@ -1119,6 +1119,6 @@ class Importer extends Markdown_Importer {
 	 */
 	protected function fail( $message ) {
 		$this->log( $message, 'warning' );
-		return new WP_Error( 'wporg-docs-import', $message );
+		return new WP_Error( 'wp-docs-import', $message );
 	}
 }

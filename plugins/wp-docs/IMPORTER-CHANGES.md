@@ -11,7 +11,7 @@ per-handbook subclass in the wporg-developer theme. The engine works: in a 2026-
 subclass is the part that breaks pages: links, images, callouts, front matter, redirects, removed pages.
 Each handbook solves those again, differently, or not at all.
 
-The WordPress.org Docs hub prototype (`ndiego/wporg-docs`) needed all of them at once for 1,296 pages
+The WordPress.org Docs hub prototype (`ndiego/wordpress-documentation`) needed all of them at once for 1,296 pages
 from sixteen sections and seven spoke repositories. This document lists the changes it made, says for each
 one whether it needs anything upstream, and attaches small patches for the parts that are better in the
 engine. Everything here runs today as a subclass of the **unmodified** importer; the patches are
@@ -57,7 +57,7 @@ avoids this by writing raw `<div class="callout callout-info">` HTML, which GitH
 **Change.** Two steps, so alerts can never merge:
 
 1. In `wporg_markdown_before_transform`, each top-level alert outside a code fence (``` or ~~~) becomes
-   a Markdown Extra block `<div data-wporg-docs-alert="note" markdown="1">`. The parser converts the
+   a Markdown Extra block `<div data-wp-docs-alert="note" markdown="1">`. The parser converts the
    alert body (lists, code, links) as ordinary Markdown inside it. CommonMark lazy continuation lines
    are kept in the alert.
 2. After parsing, the placeholder becomes the site's notice markup: in the blocks output mode a
@@ -118,7 +118,7 @@ and paste absolute URLs; only Playground's subclass sideloads (`import-playgroun
 
 **Change.** Every `<img>` with a relative `src` is resolved against the Markdown file the way GitHub
 resolves it, fetched raw (same host and ref as the page), and imported with `media_handle_sideload()`
-once per **SHA-256 of the bytes**, stored as `_wporg_docs_image_hash` on the attachment. Re-imports and
+once per **SHA-256 of the bytes**, stored as `_wp_docs_image_hash` on the attachment. Re-imports and
 other pages that use the same bytes reuse the attachment; a changed image is a new attachment. The tag
 gets the attachment URL and `wp-image-<id>` (so the blocks mode emits a real `core/image` with its id),
 and keeps the alt text written in the page. WebP works (tested). Absolute image URLs are never touched.
@@ -173,11 +173,11 @@ array (`import-block-editor.php` lines 46 to 179, about 70 entries). The proposa
 `redirect_from` in the Gutenberg manifest has stalled since 2023.
 
 **Change.** `redirect_from` travels with the page (manifest, and front matter as a fallback). Same-host
-paths are stored in `_wporg_docs_redirect_from`; a lookup option (path to post ID) is rebuilt after each
+paths are stored in `_wp_docs_redirect_from`; a lookup option (path to post ID) is rebuilt after each
 import, and a `template_redirect` handler sends a 301 when a request would otherwise 404. A path that is
 the page's own URL is dropped. Full URLs on another host (for example old
 `https://developer.wordpress.org/themes/...` pages) cannot be served by this site; they are stored in
-`_wporg_docs_redirect_external` for a rule on that host. Tested: an old `/documentation/article/...`
+`_wp_docs_redirect_external` for a rule on that host. Tested: an old `/documentation/article/...`
 path and a renamed page's old URL both returned 301 to the current page.
 
 **Upstream?** No. Redirects are a site concern; any subclass can do this in about 100 lines.
@@ -194,12 +194,12 @@ manifests with raw or relative sources get an edit link to the raw file, which t
 patches with a `get_post_metadata` filter (lines 224 to 275). Its title filter appends an icon from the
 wporg-cli plugin (line 94). There is no "report a problem" link and no record of the imported commit.
 
-**Change.** The importer writes `_wporg_docs_source_url`, `_wporg_docs_edit_url`, `_wporg_docs_issue_url`
+**Change.** The importer writes `_wp_docs_source_url`, `_wp_docs_edit_url`, `_wp_docs_issue_url`
 (a prefilled new-issue URL whose body carries the page URL, file path and commit),
-`_wporg_docs_commit` (from the GitHub commits API when a token is configured, otherwise empty) and
-`_wporg_docs_imported` (ISO 8601), plus id, section, audience, applies-to and generated metadata, all
+`_wp_docs_commit` (from the GitHub commits API when a token is configured, otherwise empty) and
+`_wp_docs_imported` (ISO 8601), plus id, section, audience, applies-to and generated metadata, all
 registered with `show_in_rest`. Offline imports take the GitHub URL from the manifest's `source_url`.
-`wporg_docs_page_links( $post )` returns them for the theme. The stock Editor is kept for its wp-admin
+`wp_docs_page_links( $post )` returns them for the theme. The stock Editor is kept for its wp-admin
 warning; its title filter is removed.
 
 **Upstream?** No for the hub; but a `get_commit()` hook in the base class would let every handbook show
@@ -215,7 +215,7 @@ block comment in the content makes `has_blocks()` true, core skips `wpautop`, an
 its paragraphs (spike, section 3). Handbooks therefore cannot mix in a single block, and the
 WordPress.org block styles (code copy buttons, notice blocks) only apply when HTML happens to match.
 
-**Change.** A `wporg_docs_output_mode` filter, `blocks` (default) or `classic` (exactly today). In
+**Change.** A `wp_docs_output_mode` filter, `blocks` (default) or `classic` (exactly today). In
 blocks mode the parser output is run through `wpautop( $html, false )` once at import time (no `<br>`
 for soft line breaks, as GitHub renders them) and converted with a deterministic DOM walk:
 
@@ -262,9 +262,9 @@ must be available (it is on every WordPress.org site through mu-plugins).
 syncing from its file, then logs an error on every run once the file is gone (spike, section 4, case E).
 
 **Change.** After an import, published pages from the imported manifests whose id is no longer in them
-become drafts with `_wporg_docs_removed` set to the time; nothing is deleted. A page that returns to the
+become drafts with `_wp_docs_removed` set to the time; nothing is deleted. A page that returns to the
 manifest is republished in place (the stock importer only sees published posts, line 149, and would
-otherwise create a duplicate). `wp wporg-docs status` lists removed pages. Tested: removing an entry
+otherwise create a duplicate). `wp wp-docs status` lists removed pages. Tested: removing an entry
 drafted its post; restoring the entry republished the same post ID.
 
 **Upstream?** Later, as an opt-in in the base class; the base class keeps the manifest entry on every
@@ -280,14 +280,14 @@ imported, but a truncated file would still do damage; CI on the manifest is the 
 `import-docs.php` lines 163 to 176), so a new page can be live and empty for one interval. Imports can
 only be forced with `wp cron event run`.
 
-**Change.** `POST /wp-json/wporg-docs/v1/import` with a shared secret (`X-WPorg-Docs-Secret`, or GitHub's
+**Change.** `POST /wp-json/wp-docs/v1/import` with a shared secret (`X-WP-Docs-Secret`, or GitHub's
 `X-Hub-Signature-256` HMAC so a repository webhook can call it directly) schedules an immediate import of
 one manifest or all of them and returns 202. One recurring event runs the manifest stage and then the
 Markdown stage in order. Tested: wrong secret 403, unknown manifest 400, header and HMAC requests 202 with
 the event scheduled.
 
 **Upstream?** No; it belongs to the site. If Meta prefers no inbound endpoints, the same ordered import
-is available as `wp wporg-docs import`.
+is available as `wp wp-docs import`.
 
 **Risks.** The endpoint is unauthenticated apart from the secret; it only schedules work and validates
 the manifest name, so the worst case is extra imports.
@@ -312,7 +312,7 @@ and a small patch.
    have an H1 that differs from the designed title.
 
 The hub subclass goes further than the patches: it keys existing posts by a stable page id
-(`_wporg_docs_id`) through `get_existing_for_post()`, so a rename or a move keeps the post ID; it sets
+(`_wp_docs_id`) through `get_existing_for_post()`, so a rename or a move keeps the post ID; it sets
 `post_parent` by id and updates `post_name` when a slug changes (the base never does); and it serves each
 page at a designed `path` from the manifest through `post_type_link` and `parse_request`, independent
 of the tree. Tested: renaming a slug kept post 143 and its old URL redirected; retitling with quotes in

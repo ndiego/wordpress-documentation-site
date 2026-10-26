@@ -10,10 +10,10 @@
  *
  * This file is pure PHP with no WordPress dependency so it can be tested with the plain `php` CLI.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs\Transforms\Front_Matter;
+namespace WP_Docs\Transforms\Front_Matter;
 
 /**
  * Split a Markdown document into front matter and body.

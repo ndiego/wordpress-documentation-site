@@ -3,19 +3,19 @@
  * Manifests and local sources.
  *
  * - `Manifests::load()` reads the manifests from a directory (default: the repository's `manifest/`
- *   mounted at `wp-content/wporg-docs-manifest`), a single file, or one or more URLs.
+ *   mounted at `wp-content/wp-docs-manifest`), a single file, or one or more URLs.
  * - `Local_Sources` answers three kinds of request inside `wp_remote_get()` through `pre_http_request`,
  *   so the stock importer's own fetch code runs unchanged:
- *   1. the normalised manifest of the current run (`https://wporg-docs.local/manifest/<name>.json`);
- *   2. repository files of offline manifests (`https://wporg-docs.local/repo/<path>`), read from the
- *      repository checkout (WPORG_DOCS_REPO_PATH), with no ETag;
- *   3. optionally (WPORG_DOCS_PREFER_LOCAL), raw.githubusercontent.com files of the hub repository,
+ *   1. the normalised manifest of the current run (`https://wp-docs.local/manifest/<name>.json`);
+ *   2. repository files of offline manifests (`https://wp-docs.local/repo/<path>`), read from the
+ *      repository checkout (WP_DOCS_REPO_PATH), with no ETag;
+ *   3. optionally (WP_DOCS_PREFER_LOCAL), raw.githubusercontent.com files of the hub repository,
  *      read from the checkout instead, for working on content before it is pushed.
  *
- * @package WordPressdotorg\Docs
+ * @package WP_Docs
  */
 
-namespace WordPressdotorg\Docs;
+namespace WP_Docs;
 
 use WP_Error;
 
@@ -34,12 +34,12 @@ class Manifests {
 	 */
 	public static function location( $local = null ) {
 		if ( null === $local ) {
-			$local = defined( 'WPORG_DOCS_USE_LOCAL_MANIFESTS' ) && WPORG_DOCS_USE_LOCAL_MANIFESTS;
+			$local = defined( 'WP_DOCS_USE_LOCAL_MANIFESTS' ) && WP_DOCS_USE_LOCAL_MANIFESTS;
 		}
 		if ( $local ) {
 			$location = Local_Sources::repo_path() . '/.spokes/manifest';
 		} else {
-			$location = defined( 'WPORG_DOCS_MANIFEST' ) ? WPORG_DOCS_MANIFEST : WP_CONTENT_DIR . '/wporg-docs-manifest';
+			$location = defined( 'WP_DOCS_MANIFEST' ) ? WP_DOCS_MANIFEST : WP_CONTENT_DIR . '/wp-docs-manifest';
 		}
 
 		/**
@@ -48,7 +48,7 @@ class Manifests {
 		 * @param string $location Location.
 		 * @param bool   $local    Whether the offline manifests were requested.
 		 */
-		return (string) apply_filters( 'wporg_docs_manifest_location', $location, (bool) $local );
+		return (string) apply_filters( 'wp_docs_manifest_location', $location, (bool) $local );
 	}
 
 	/**
@@ -69,7 +69,7 @@ class Manifests {
 			foreach ( preg_split( '/[\s,]+/', trim( $location ) ) as $url ) {
 				$response = wp_remote_get( $url, array( 'timeout' => 30 ) );
 				if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-					return new WP_Error( 'wporg-docs-manifest', "Could not fetch manifest {$url}." );
+					return new WP_Error( 'wp-docs-manifest', "Could not fetch manifest {$url}." );
 				}
 				$manifests[ basename( wp_parse_url( $url, PHP_URL_PATH ), '.json' ) ] = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 			}
@@ -85,7 +85,7 @@ class Manifests {
 		} elseif ( is_file( $location ) ) {
 			$manifests[ basename( $location, '.json' ) ] = json_decode( (string) file_get_contents( $location ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		} else {
-			return new WP_Error( 'wporg-docs-manifest', "No manifests at {$location}." );
+			return new WP_Error( 'wp-docs-manifest', "No manifests at {$location}." );
 		}
 
 		foreach ( $manifests as $name => $data ) {
@@ -95,7 +95,7 @@ class Manifests {
 			}
 		}
 		if ( ! $manifests ) {
-			return new WP_Error( 'wporg-docs-manifest', "No valid manifests at {$location}." );
+			return new WP_Error( 'wp-docs-manifest', "No valid manifests at {$location}." );
 		}
 
 		return array(
@@ -120,7 +120,7 @@ class Manifests {
  */
 class Local_Sources {
 
-	const MANIFEST_BASE = 'https://wporg-docs.local/manifest/';
+	const MANIFEST_BASE = 'https://wp-docs.local/manifest/';
 
 	/**
 	 * Manifest payloads of the current request, by URL.
@@ -142,14 +142,14 @@ class Local_Sources {
 	 * @return string Path without trailing slash.
 	 */
 	public static function repo_path() {
-		$path = defined( 'WPORG_DOCS_REPO_PATH' ) ? WPORG_DOCS_REPO_PATH : ABSPATH . 'wporg-docs-repo';
+		$path = defined( 'WP_DOCS_REPO_PATH' ) ? WP_DOCS_REPO_PATH : ABSPATH . 'wp-docs-repo';
 
 		/**
 		 * Filters the base path that repository-relative `markdown_source` paths resolve against.
 		 *
-		 * @param string $path Default WPORG_DOCS_REPO_PATH, or `wporg-docs-repo` next to WordPress.
+		 * @param string $path Default WP_DOCS_REPO_PATH, or `wp-docs-repo` next to WordPress.
 		 */
-		return untrailingslashit( (string) apply_filters( 'wporg_docs_repo_path', $path ) );
+		return untrailingslashit( (string) apply_filters( 'wp_docs_repo_path', $path ) );
 	}
 
 	/**
@@ -190,7 +190,7 @@ class Local_Sources {
 		$roots = array( self::repo_path() => '' );
 		// The site also mounts the repository's content/ on its own.
 		if ( 0 === strpos( $path, 'content/' ) ) {
-			$roots[ WP_CONTENT_DIR . '/wporg-docs-content' ] = 'content/';
+			$roots[ WP_CONTENT_DIR . '/wp-docs-content' ] = 'content/';
 		}
 
 		foreach ( $roots as $root => $strip ) {
@@ -228,7 +228,7 @@ class Local_Sources {
 		$path = null;
 		if ( 0 === strpos( $bare, Sources\LOCAL_BASE ) ) {
 			$path = rawurldecode( substr( $bare, strlen( Sources\LOCAL_BASE ) ) );
-		} elseif ( defined( 'WPORG_DOCS_PREFER_LOCAL' ) && WPORG_DOCS_PREFER_LOCAL && 0 === strpos( $bare, 'https://raw.githubusercontent.com/' ) ) {
+		} elseif ( defined( 'WP_DOCS_PREFER_LOCAL' ) && WP_DOCS_PREFER_LOCAL && 0 === strpos( $bare, 'https://raw.githubusercontent.com/' ) ) {
 			$source = Sources\parse( $bare );
 			if ( $source ) {
 				$key = Sources\match_key( $source, repo_aliases() );
