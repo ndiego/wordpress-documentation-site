@@ -1,0 +1,57 @@
+--- a/inc/class-importer.php
++++ b/inc/class-importer.php
+@@ -46,6 +46,24 @@
+ 	 * @var array
+ 	 */
+ 	protected $existing = [];
++
++	/**
++	 * Whether a manifest entry may match an existing post by slug alone when its key does not match.
++	 *
++	 * The slug fallback lets a new entry take over an unrelated post that shares its slug in another
++	 * part of the tree. Importers whose posts carry a stable id should set this to false.
++	 *
++	 * @var bool
++	 */
++	protected $match_by_slug = true;
++
++	/**
++	 * Whether the manifest `title` wins over the document's first H1. The H1 is removed from the
++	 * body either way.
++	 *
++	 * @var bool
++	 */
++	protected $title_from_manifest = false;
+ 
+ 	/**
+ 	 * Get base URL for all pages.
+@@ -146,11 +164,13 @@
+ 		$created = $updated = 0;
+ 		foreach ( $manifest as $key => $doc ) {
+ 			// Already exists, update.
+-			$existing = $this->existing[ $key ]
+-				?? $this->existing['slug_only'][ $key ]
+-				?? $this->existing[ $doc['slug'] ]
+-				?? $this->existing['slug_only'][ $doc['slug'] ]
+-				?? false;
++			$existing = $this->existing[ $key ] ?? false;
++			if ( ! $existing && $this->match_by_slug ) {
++				$existing = $this->existing['slug_only'][ $key ]
++					?? $this->existing[ $doc['slug'] ]
++					?? $this->existing['slug_only'][ $doc['slug'] ]
++					?? false;
++			}
+ 			if ( ! $existing && 'index' === $key ) {
+ 				$key = $this->get_post_type();
+ 				$existing = $this->existing[ $key ] ?? $this->existing['slug_only'][ $key ] ?? false;
+@@ -372,6 +392,10 @@
+ 
+ 		$manifest_entry = get_post_meta( $post_id, $this->manifest_entry_meta_key, true );
+ 
++		if ( $this->title_from_manifest && ! empty( $manifest_entry['title'] ) ) {
++			$title = $manifest_entry['title'];
++		}
++
+ 		// Determine value for 'menu_order'. `0` is a valid order.
+ 		if ( isset( $manifest_entry['order'] ) && is_numeric( $manifest_entry['order'] ) ) {
+ 			$post_data['menu_order'] = $manifest_entry['order'];

@@ -1,0 +1,36 @@
+--- a/inc/class-importer.php
++++ b/inc/class-importer.php
+@@ -484,7 +484,15 @@
+ 
+ 		$markdown = trim( $markdown );
+ 
+-		$markdown = apply_filters( 'wporg_markdown_before_transform', $markdown, $this->get_post_type() );
++		/**
++		 * Filters the Markdown before it is parsed.
++		 *
++		 * @param string $markdown  Markdown.
++		 * @param string $post_type Post type.
++		 * @param int    $post_id   Post being updated (new in this version).
++		 * @param string $source    Markdown source URL of the post (new in this version).
++		 */
++		$markdown = apply_filters( 'wporg_markdown_before_transform', $markdown, $this->get_post_type(), $post_id, $this->get_markdown_source( $post_id ) );
+ 
+ 		$title = null;
+ 		if ( preg_match( '/^#\s(.+)/', $markdown, $matches ) ) {
+@@ -498,7 +506,15 @@
+ 		$parser->preserve_shortcodes = false;
+ 		$html = $parser->transform( $markdown );
+ 
+-		$html = apply_filters( 'wporg_markdown_after_transform', $html, $this->get_post_type() );
++		/**
++		 * Filters the HTML produced from the Markdown.
++		 *
++		 * @param string $html      HTML.
++		 * @param string $post_type Post type.
++		 * @param int    $post_id   Post being updated (new in this version).
++		 * @param string $source    Markdown source URL of the post (new in this version).
++		 */
++		$html = apply_filters( 'wporg_markdown_after_transform', $html, $this->get_post_type(), $post_id, $this->get_markdown_source( $post_id ) );
+ 
+ 		// Use the first line as the excerpt, but first strip any HTML.
+ 		$excerpt = '';

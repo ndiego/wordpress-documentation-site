@@ -1,0 +1,69 @@
+<!-- wp:list -->
+<ul class="wp-block-list"><!-- wp:list-item -->
+<li>Apples</li>
+<!-- /wp:list-item -->
+
+<!-- wp:list-item -->
+<li>Oranges with <code>code</code> and a <a href="https://wordpress.org/">link</a><!-- wp:list -->
+<ul class="wp-block-list"><!-- wp:list-item -->
+<li>Nested one</li>
+<!-- /wp:list-item -->
+
+<!-- wp:list-item -->
+<li>Nested two</li>
+<!-- /wp:list-item --></ul>
+<!-- /wp:list --></li>
+<!-- /wp:list-item -->
+
+<!-- wp:list-item -->
+<li>Pears</li>
+<!-- /wp:list-item --></ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>An ordered list:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list"><!-- wp:list-item -->
+<li>First</li>
+<!-- /wp:list-item -->
+
+<!-- wp:list-item -->
+<li>Second<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list"><!-- wp:list-item -->
+<li>Nested ordered</li>
+<!-- /wp:list-item --></ol>
+<!-- /wp:list --></li>
+<!-- /wp:list-item --></ol>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>A loose list (one paragraph per item) is still a list block:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list"><!-- wp:list-item -->
+<li>Loose item one</li>
+<!-- /wp:list-item -->
+
+<!-- wp:list-item -->
+<li>Loose item two</li>
+<!-- /wp:list-item --></ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Steps with code inside an item cannot be list blocks and become one HTML block:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:html -->
+<ol>
+<li>Step with a code sample:
+<pre><code class="language-bash">npx wp-env start
+</code></pre>
+</li>
+<li>
+<p>Next step</p>
+</li>
+</ol>
+<!-- /wp:html -->

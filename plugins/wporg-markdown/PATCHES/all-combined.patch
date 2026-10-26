@@ -1,0 +1,208 @@
+--- a/inc/class-importer.php
++++ t/inc/class-importer.php	2026-10-14 15:51:08
+@@ -48,6 +48,24 @@
+ 	protected $existing = [];
+ 
+ 	/**
++	 * Whether a manifest entry may match an existing post by slug alone when its key does not match.
++	 *
++	 * The slug fallback lets a new entry take over an unrelated post that shares its slug in another
++	 * part of the tree. Importers whose posts carry a stable id should set this to false.
++	 *
++	 * @var bool
++	 */
++	protected $match_by_slug = true;
++
++	/**
++	 * Whether the manifest `title` wins over the document's first H1. The H1 is removed from the
++	 * body either way.
++	 *
++	 * @var bool
++	 */
++	protected $title_from_manifest = false;
++
++	/**
+ 	 * Get base URL for all pages.
+ 	 *
+ 	 * This is used for generating the keys for the existing pages.
+@@ -105,31 +123,11 @@
+ 	 * Fetches the manifest, parses, and creates pages as needed.
+ 	 */
+ 	public function import_manifest() {
+-		$response = wp_remote_get( $this->get_manifest_url() );
+-		if ( is_wp_error( $response ) ) {
+-			if ( class_exists( 'WP_CLI' ) ) {
+-				WP_CLI::error( $response->get_error_message() );
+-			}
+-			return $response;
+-		} elseif ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
+-			if ( class_exists( 'WP_CLI' ) ) {
+-				WP_CLI::error( 'Non-200 from Markdown source' );
+-			}
+-			return new WP_Error( 'invalid-http-code', 'Markdown source returned non-200 http code.' );
+-		} else {
+-			if ( class_exists( 'WP_CLI' ) ) {
+-				WP_CLI::log( "Importing manifest from " . $this->get_manifest_url() );
+-			}	
++		$manifest = $this->get_manifest();
++		if ( is_wp_error( $manifest ) ) {
++			return $manifest;
+ 		}
+-		$manifest = json_decode( wp_remote_retrieve_body( $response ), true );
+ 
+-		if ( ! $manifest ) {
+-			if ( class_exists( 'WP_CLI' ) ) {
+-				WP_CLI::error( 'Invalid manifest' );
+-			}
+-			return new WP_Error( 'invalid-manifest', 'Manifest did not unfurl properly.' );
+-		}
+-
+ 		// A numeric key suggests the manifest did not explicitly specify keys for each item, so define one.
+ 		// Note: not explicitly specifying a key means the slugs defined must be unique.
+ 		$keys = array_keys( $manifest );
+@@ -166,11 +164,13 @@
+ 		$created = $updated = 0;
+ 		foreach ( $manifest as $key => $doc ) {
+ 			// Already exists, update.
+-			$existing = $this->existing[ $key ]
+-				?? $this->existing['slug_only'][ $key ]
+-				?? $this->existing[ $doc['slug'] ]
+-				?? $this->existing['slug_only'][ $doc['slug'] ]
+-				?? false;
++			$existing = $this->existing[ $key ] ?? false;
++			if ( ! $existing && $this->match_by_slug ) {
++				$existing = $this->existing['slug_only'][ $key ]
++					?? $this->existing[ $doc['slug'] ]
++					?? $this->existing['slug_only'][ $doc['slug'] ]
++					?? false;
++			}
+ 			if ( ! $existing && 'index' === $key ) {
+ 				$key = $this->get_post_type();
+ 				$existing = $this->existing[ $key ] ?? $this->existing['slug_only'][ $key ] ?? false;
+@@ -197,6 +197,39 @@
+ 	}
+ 
+ 	/**
++	 * Fetch and decode the manifest. Subclasses can override this to read a manifest from disk,
++	 * merge several manifests, or normalise entries before they are imported.
++	 *
++	 * @return array|WP_Error Decoded manifest.
++	 */
++	protected function get_manifest() {
++		$response = wp_remote_get( $this->get_manifest_url() );
++		if ( is_wp_error( $response ) ) {
++			if ( class_exists( 'WP_CLI' ) ) {
++				WP_CLI::error( $response->get_error_message() );
++			}
++			return $response;
++		} elseif ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
++			if ( class_exists( 'WP_CLI' ) ) {
++				WP_CLI::error( 'Non-200 from Markdown source' );
++			}
++			return new WP_Error( 'invalid-http-code', 'Markdown source returned non-200 http code.' );
++		} elseif ( class_exists( 'WP_CLI' ) ) {
++			WP_CLI::log( "Importing manifest from " . $this->get_manifest_url() );
++		}
++
++		$manifest = json_decode( wp_remote_retrieve_body( $response ), true );
++		if ( ! $manifest ) {
++			if ( class_exists( 'WP_CLI' ) ) {
++				WP_CLI::error( 'Invalid manifest' );
++			}
++			return new WP_Error( 'invalid-manifest', 'Manifest did not unfurl properly.' );
++		}
++
++		return $manifest;
++	}
++
++	/**
+ 	 * Process a document from the manifest.
+ 	 *
+ 	 * @param array $doc Document to process.
+@@ -359,8 +392,12 @@
+ 
+ 		$manifest_entry = get_post_meta( $post_id, $this->manifest_entry_meta_key, true );
+ 
+-		// Determine value for 'menu_order'.
+-		if ( ! empty( $manifest_entry['order'] ) ) {
++		if ( $this->title_from_manifest && ! empty( $manifest_entry['title'] ) ) {
++			$title = $manifest_entry['title'];
++		}
++
++		// Determine value for 'menu_order'. `0` is a valid order.
++		if ( isset( $manifest_entry['order'] ) && is_numeric( $manifest_entry['order'] ) ) {
+ 			$post_data['menu_order'] = $manifest_entry['order'];
+ 		}
+ 
+@@ -407,7 +444,9 @@
+ 		if ( $do_update && $post_data ) {
+ 			$post = get_post( $post_id );
+ 			foreach ( $post_data as $field => $value ) {
+-				if ( $value == $post->$field ) {
++				// Titles are slashed above; compare unslashed so an unchanged title containing a quote
++				// or backslash does not rewrite the post (and bump post_modified) on every run.
++				if ( wp_unslash( $value ) == $post->$field ) {
+ 					// Unset it to prevent calling `wp_update_post()` with this and bumping the last_modified date.
+ 					unset( $post_data[ $field ] );
+ 				}
+@@ -479,12 +518,40 @@
+ 		$etag = wp_remote_retrieve_header( $response, 'etag' );
+ 
+ 		$markdown = wp_remote_retrieve_body( $response );
+-		// Strip YAML doc from the header
+-		$markdown = preg_replace( '#^---(.+)---#Us', '', $markdown );
++
++		// Drop a UTF-8 byte order mark, which made `^---` miss the front matter.
++		if ( 0 === strncmp( $markdown, "\xEF\xBB\xBF", 3 ) ) {
++			$markdown = substr( $markdown, 3 );
++		}
++
++		// Strip YAML front matter: a `---` line at the very start, closed by the next line that is
++		// exactly `---` or `...`. A `---` inside a value no longer ends the block early.
++		$front_matter = '';
++		if ( preg_match( '/\A---[ \t]*\r?\n(.*?)^(?:---|\.\.\.)[ \t]*(?:\r?\n|\z)/ms', $markdown, $fm ) ) {
++			$front_matter = $fm[1];
++			$markdown     = substr( $markdown, strlen( $fm[0] ) );
++		}
+ 
++		/**
++		 * Fires with the raw front matter of an imported document, before the Markdown is parsed.
++		 *
++		 * @param string $front_matter YAML text without the fences ('' when absent).
++		 * @param int    $post_id      Post being updated.
++		 * @param string $post_type    Post type.
++		 */
++		do_action( 'wporg_markdown_front_matter', $front_matter, $post_id, $this->get_post_type() );
++
+ 		$markdown = trim( $markdown );
+ 
+-		$markdown = apply_filters( 'wporg_markdown_before_transform', $markdown, $this->get_post_type() );
++		/**
++		 * Filters the Markdown before it is parsed.
++		 *
++		 * @param string $markdown  Markdown.
++		 * @param string $post_type Post type.
++		 * @param int    $post_id   Post being updated (new in this version).
++		 * @param string $source    Markdown source URL of the post (new in this version).
++		 */
++		$markdown = apply_filters( 'wporg_markdown_before_transform', $markdown, $this->get_post_type(), $post_id, $this->get_markdown_source( $post_id ) );
+ 
+ 		$title = null;
+ 		if ( preg_match( '/^#\s(.+)/', $markdown, $matches ) ) {
+@@ -498,7 +565,15 @@
+ 		$parser->preserve_shortcodes = false;
+ 		$html = $parser->transform( $markdown );
+ 
+-		$html = apply_filters( 'wporg_markdown_after_transform', $html, $this->get_post_type() );
++		/**
++		 * Filters the HTML produced from the Markdown.
++		 *
++		 * @param string $html      HTML.
++		 * @param string $post_type Post type.
++		 * @param int    $post_id   Post being updated (new in this version).
++		 * @param string $source    Markdown source URL of the post (new in this version).
++		 */
++		$html = apply_filters( 'wporg_markdown_after_transform', $html, $this->get_post_type(), $post_id, $this->get_markdown_source( $post_id ) );
+ 
+ 		// Use the first line as the excerpt, but first strip any HTML.
+ 		$excerpt = '';

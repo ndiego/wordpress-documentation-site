@@ -1,0 +1,24 @@
+--- a/inc/class-importer.php
++++ b/inc/class-importer.php
+@@ -359,8 +359,8 @@
+ 
+ 		$manifest_entry = get_post_meta( $post_id, $this->manifest_entry_meta_key, true );
+ 
+-		// Determine value for 'menu_order'.
+-		if ( ! empty( $manifest_entry['order'] ) ) {
++		// Determine value for 'menu_order'. `0` is a valid order.
++		if ( isset( $manifest_entry['order'] ) && is_numeric( $manifest_entry['order'] ) ) {
+ 			$post_data['menu_order'] = $manifest_entry['order'];
+ 		}
+ 
+@@ -407,7 +407,9 @@
+ 		if ( $do_update && $post_data ) {
+ 			$post = get_post( $post_id );
+ 			foreach ( $post_data as $field => $value ) {
+-				if ( $value == $post->$field ) {
++				// Titles are slashed above; compare unslashed so an unchanged title containing a quote
++				// or backslash does not rewrite the post (and bump post_modified) on every run.
++				if ( wp_unslash( $value ) == $post->$field ) {
+ 					// Unset it to prevent calling `wp_update_post()` with this and bumping the last_modified date.
+ 					unset( $post_data[ $field ] );
+ 				}

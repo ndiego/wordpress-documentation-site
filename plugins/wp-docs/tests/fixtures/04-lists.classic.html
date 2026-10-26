@@ -1,0 +1,39 @@
+<ul>
+<li>Apples</li>
+<li>Oranges with <code>code</code> and a <a href="https://wordpress.org/">link</a>
+
+<ul>
+<li>Nested one</li>
+<li>Nested two</li>
+</ul></li>
+<li>Pears</li>
+</ul>
+
+An ordered list:
+
+<ol>
+<li>First</li>
+<li>Second
+
+<ol>
+<li>Nested ordered</li>
+</ol></li>
+</ol>
+
+A loose list (one paragraph per item) is still a list block:
+
+<ul>
+<li>Loose item one</p></li>
+<li><p>Loose item two</p></li>
+</ul>
+
+<p>Steps with code inside an item cannot be list blocks and become one HTML block:
+
+<ol>
+<li>Step with a code sample:
+
+<pre><code class="language-bash">npx wp-env start
+</code></pre></li>
+<li><p>Next step</p></li>
+</ol>
+

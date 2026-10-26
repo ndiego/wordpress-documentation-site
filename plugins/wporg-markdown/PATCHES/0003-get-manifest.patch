@@ -1,0 +1,77 @@
+--- a/inc/class-importer.php
++++ b/inc/class-importer.php
+@@ -105,31 +105,11 @@
+ 	 * Fetches the manifest, parses, and creates pages as needed.
+ 	 */
+ 	public function import_manifest() {
+-		$response = wp_remote_get( $this->get_manifest_url() );
+-		if ( is_wp_error( $response ) ) {
+-			if ( class_exists( 'WP_CLI' ) ) {
+-				WP_CLI::error( $response->get_error_message() );
+-			}
+-			return $response;
+-		} elseif ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
+-			if ( class_exists( 'WP_CLI' ) ) {
+-				WP_CLI::error( 'Non-200 from Markdown source' );
+-			}
+-			return new WP_Error( 'invalid-http-code', 'Markdown source returned non-200 http code.' );
+-		} else {
+-			if ( class_exists( 'WP_CLI' ) ) {
+-				WP_CLI::log( "Importing manifest from " . $this->get_manifest_url() );
+-			}	
++		$manifest = $this->get_manifest();
++		if ( is_wp_error( $manifest ) ) {
++			return $manifest;
+ 		}
+-		$manifest = json_decode( wp_remote_retrieve_body( $response ), true );
+ 
+-		if ( ! $manifest ) {
+-			if ( class_exists( 'WP_CLI' ) ) {
+-				WP_CLI::error( 'Invalid manifest' );
+-			}
+-			return new WP_Error( 'invalid-manifest', 'Manifest did not unfurl properly.' );
+-		}
+-
+ 		// A numeric key suggests the manifest did not explicitly specify keys for each item, so define one.
+ 		// Note: not explicitly specifying a key means the slugs defined must be unique.
+ 		$keys = array_keys( $manifest );
+@@ -197,6 +177,39 @@
+ 	}
+ 
+ 	/**
++	 * Fetch and decode the manifest. Subclasses can override this to read a manifest from disk,
++	 * merge several manifests, or normalise entries before they are imported.
++	 *
++	 * @return array|WP_Error Decoded manifest.
++	 */
++	protected function get_manifest() {
++		$response = wp_remote_get( $this->get_manifest_url() );
++		if ( is_wp_error( $response ) ) {
++			if ( class_exists( 'WP_CLI' ) ) {
++				WP_CLI::error( $response->get_error_message() );
++			}
++			return $response;
++		} elseif ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
++			if ( class_exists( 'WP_CLI' ) ) {
++				WP_CLI::error( 'Non-200 from Markdown source' );
++			}
++			return new WP_Error( 'invalid-http-code', 'Markdown source returned non-200 http code.' );
++		} elseif ( class_exists( 'WP_CLI' ) ) {
++			WP_CLI::log( "Importing manifest from " . $this->get_manifest_url() );
++		}
++
++		$manifest = json_decode( wp_remote_retrieve_body( $response ), true );
++		if ( ! $manifest ) {
++			if ( class_exists( 'WP_CLI' ) ) {
++				WP_CLI::error( 'Invalid manifest' );
++			}
++			return new WP_Error( 'invalid-manifest', 'Manifest did not unfurl properly.' );
++		}
++
++		return $manifest;
++	}
++
++	/**
+ 	 * Process a document from the manifest.
+ 	 *
+ 	 * @param array $doc Document to process.

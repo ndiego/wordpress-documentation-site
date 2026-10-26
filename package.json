@@ -1,0 +1,23 @@
+{
+	"name": "wordpress-documentation-site",
+	"version": "0.1.0",
+	"private": true,
+	"description": "The site that renders the WordPress documentation from Markdown on GitHub: wp-env, the wp-docs plugin and the wp-docs block theme.",
+	"license": "GPL-2.0-or-later",
+	"engines": {
+		"node": ">=24"
+	},
+	"devDependencies": {
+		"@wordpress/env": "11.0.0",
+		"playwright": "1.63.0"
+	},
+	"scripts": {
+		"wp-env": "wp-env",
+		"start": "wp-env start",
+		"stop": "wp-env stop",
+		"setup": "wp-env run cli bash wp-docs-tools/setup.sh",
+		"import": "wp-env run cli wp wp-docs import",
+		"export": "node tools/export-static.mjs",
+		"shots": "node tools/shots.mjs"
+	}
+}

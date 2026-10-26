@@ -1,0 +1,5 @@
+GNU General Public License v2.0 or later. See https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+plugins/wporg-markdown/ is the WordPress.org Markdown importer, vendored from the WordPress Meta repository (see
+its SOURCE.md). plugins/wp-docs/vendor/ holds the WordPress.org global header, footer and fonts from
+https://github.com/WordPress/wporg-mu-plugins, GPL-2.0-or-later.
