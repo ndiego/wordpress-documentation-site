@@ -28,6 +28,7 @@ add_action( 'wp_head', __NAMESPACE__ . '\scheme_script', 0 );
 add_filter( 'pre_render_block', __NAMESPACE__ . '\global_header_footer_fallback', 10, 2 );
 add_filter( 'render_block_core/group', __NAMESPACE__ . '\label_rail', 10, 2 );
 add_filter( 'render_block_core/code', __NAMESPACE__ . '\code_block', 10, 2 );
+add_filter( 'render_block', __NAMESPACE__ . '\inline_code_shortcodes', 10, 2 );
 add_filter( 'single_template_hierarchy', __NAMESPACE__ . '\home_post_template' );
 add_filter( 'body_class', __NAMESPACE__ . '\body_class' );
 
@@ -197,6 +198,7 @@ function code_block( $content, $block ) {
 		'markdown'   => 'Markdown',
 		'diff'       => 'Diff',
 	);
+	$content = protect_code_shortcodes( $content );
 	$label = in_array( $lang, array( '', 'text', 'plain', 'plaintext', 'txt', 'none' ), true ) ? '' : ( $labels[ $lang ] ?? strtoupper( $lang ) );
 	return sprintf(
 		'<div class="wp-docs-code%1$s"%2$s><div class="wp-docs-code__bar"><span class="wp-docs-code__lang">%3$s</span></div>%4$s</div>',
@@ -242,4 +244,36 @@ function body_class( $classes ) {
 		}
 	}
 	return $classes;
+}
+
+/**
+ * Encode brackets inside <code>, so a shortcode written as an example (`[gallery ids="1,2"]`) is shown
+ * rather than run: core runs do_shortcode() on the content after the blocks render.
+ *
+ * @param string $content HTML.
+ * @return string
+ */
+function protect_code_shortcodes( $content ) {
+	if ( false === strpos( $content, '[' ) || false === stripos( $content, '<code' ) ) {
+		return $content;
+	}
+	return preg_replace_callback(
+		'#(<code\b[^>]*>)(.*?)(</code>)#is',
+		static function ( $m ) {
+			return $m[1] . str_replace( array( '[', ']' ), array( '&#91;', '&#93;' ), $m[2] ) . $m[3];
+		},
+		$content
+	);
+}
+
+/**
+ * Inline code in paragraphs, lists, tables and headings.
+ *
+ * @param string $content Rendered block.
+ * @param array  $block   Block.
+ * @return string
+ */
+function inline_code_shortcodes( $content, $block ) {
+	$names = array( 'core/paragraph', 'core/list-item', 'core/list', 'core/table', 'core/heading', 'core/html', 'core/details' );
+	return in_array( $block['blockName'] ?? '', $names, true ) ? protect_code_shortcodes( $content ) : $content;
 }
