@@ -66,3 +66,29 @@ function rewrite( string $html, array $base, callable $import, array &$failed = 
 
 	return $tags->get_updated_html();
 }
+
+/**
+ * Whether an SVG is safe to store in the media library (uploads are served from the site's origin).
+ *
+ * A deliberately small check, not a sanitizer: the file is rejected when it contains a `<script>`
+ * element, an `on*` event attribute, a `javascript:` or `data:` URL in `href` / `xlink:href`, or a
+ * `<foreignObject>`. Entity-encoded variants are decoded before the URL check.
+ *
+ * @param string $svg SVG source.
+ * @return bool
+ */
+function svg_is_safe( string $svg ): bool {
+	$decoded = html_entity_decode( $svg, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+	foreach ( array( $svg, $decoded ) as $text ) {
+		if ( preg_match( '/<\s*script\b/i', $text ) || preg_match( '/<\s*foreignObject\b/i', $text ) ) {
+			return false;
+		}
+		if ( preg_match( '/<[^>]*\son[a-z]+\s*=/i', $text ) ) {
+			return false;
+		}
+		if ( preg_match( '/\b(?:xlink:)?href\s*=\s*["\']?[\s\x00-\x1f]*(?:j[\s\x00-\x1f]*a[\s\x00-\x1f]*v[\s\x00-\x1f]*a[\s\x00-\x1f]*s[\s\x00-\x1f]*c[\s\x00-\x1f]*r[\s\x00-\x1f]*i[\s\x00-\x1f]*p[\s\x00-\x1f]*t|data)[\s\x00-\x1f]*:/i', $text ) ) {
+			return false;
+		}
+	}
+	return true;
+}

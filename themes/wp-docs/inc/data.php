@@ -198,10 +198,8 @@ function markdown_url( $post = null ) {
 	if ( ! $post ) {
 		return '';
 	}
-	if ( function_exists( 'wp_docs_markdown_url' ) ) {
-		return (string) wp_docs_markdown_url( $post );
-	}
-	return add_query_arg( 'output_format', 'md', get_permalink( $post ) );
+	// Without the plugin there is no Markdown endpoint: "" hides the Markdown actions.
+	return function_exists( 'wp_docs_markdown_url' ) ? (string) wp_docs_markdown_url( $post ) : '';
 }
 
 /**

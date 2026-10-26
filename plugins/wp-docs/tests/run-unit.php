@@ -292,5 +292,14 @@ $parser = new WP_Block_Parser();
 $parsed = $parser->parse( Blocks\convert( "<blockquote><p>q</p></blockquote>\n<details><summary>S</summary><p>d</p></details>" ) );
 check( 'blocks: core parser sees quote and details with inner paragraphs', array( $parsed[0]['blockName'], $parsed[0]['innerBlocks'][0]['blockName'], $parsed[2]['blockName'], $parsed[2]['innerBlocks'][0]['blockName'] ), array( 'core/quote', 'core/paragraph', 'core/details', 'core/paragraph' ) );
 
+/*
+ * (c) SVG safety check (fixtures in tests/fixtures/svg/).
+ */
+foreach ( glob( __DIR__ . '/fixtures/svg/*.svg' ) as $svg_file ) {
+	$svg_name = basename( $svg_file, '.svg' );
+	check( "svg: {$svg_name}", Images\svg_is_safe( (string) file_get_contents( $svg_file ) ), 0 !== strpos( $svg_name, 'unsafe-' ) );
+}
+check( 'svg: the content repository diagram passes', Images\svg_is_safe( '<svg xmlns="http://www.w3.org/2000/svg"><g fill="none"><path d="M0 0h1"/></g></svg>' ), true );
+
 echo "\n{$GLOBALS['wdt_passed']} passed, {$GLOBALS['wdt_failed']} failed\n";
 exit( $GLOBALS['wdt_failed'] ? 1 : 0 );

@@ -48,6 +48,11 @@ class Importer extends Markdown_Importer {
 	const LOCK = 'wp_docs_import_lock';
 
 	/**
+	 * Seconds after which a lock is considered left over from a run that died (also the run's time limit).
+	 */
+	const LOCK_TTL = 15 * MINUTE_IN_SECONDS;
+
+	/**
 	 * Singleton.
 	 *
 	 * @var Importer|null
@@ -194,14 +199,22 @@ class Importer extends Markdown_Importer {
 			return $this->fail( 'Pretty permalinks are required: the stock importer matches posts by permalink path. Run `wp rewrite structure /%postname%/`.' );
 		}
 
-		// One import at a time. The lock expires on its own if a run dies.
-		$lock = get_transient( self::LOCK );
-		if ( $lock && ( time() - (int) $lock ) < 10 * MINUTE_IN_SECONDS ) {
-			return $this->fail( 'Another import started at ' . gmdate( 'c', (int) $lock ) . ' is still running.' );
+		// One import at a time. add_option() is an atomic insert, so two runs cannot both take the lock;
+		// a lock older than the time limit is from a run that died and is cleared.
+		$token = wp_generate_uuid4();
+		if ( ! add_option( self::LOCK, array( 'time' => time(), 'token' => $token ), '', false ) ) {
+			$lock    = get_option( self::LOCK );
+			$started = is_array( $lock ) ? (int) ( $lock['time'] ?? 0 ) : 0;
+			if ( time() - $started < self::LOCK_TTL ) {
+				return $this->fail( 'Another import started at ' . gmdate( 'c', $started ) . ' is still running.' );
+			}
+			delete_option( self::LOCK );
+			if ( ! add_option( self::LOCK, array( 'time' => time(), 'token' => $token ), '', false ) ) {
+				return $this->fail( 'Another import is still running.' );
+			}
 		}
-		set_transient( self::LOCK, time(), 10 * MINUTE_IN_SECONDS );
 		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( 600 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			@set_time_limit( self::LOCK_TTL ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		}
 
 		Local_Sources::$manifest_override = (string) $args['manifest'];
@@ -209,7 +222,12 @@ class Importer extends Markdown_Importer {
 			return $this->run_locked( (bool) $args['force'] );
 		} finally {
 			Local_Sources::$manifest_override = '';
-			delete_transient( self::LOCK );
+			// Release the lock only if it is still this run's (a stale-lock takeover may have replaced it).
+			wp_cache_delete( self::LOCK, 'options' );
+			$lock = get_option( self::LOCK );
+			if ( is_array( $lock ) && ( $lock['token'] ?? '' ) === $token ) {
+				delete_option( self::LOCK );
+			}
 		}
 	}
 
@@ -361,7 +379,12 @@ class Importer extends Markdown_Importer {
 		if ( ! in_array( $interval, array_keys( wp_get_schedules() ), true ) ) {
 			$interval = '15_minutes';
 		}
-		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
+		$next = wp_next_scheduled( self::CRON_HOOK );
+		if ( $next && wp_get_schedule( self::CRON_HOOK ) !== $interval ) {
+			wp_clear_scheduled_hook( self::CRON_HOOK );
+			$next = false;
+		}
+		if ( ! $next ) {
 			wp_schedule_event( time(), $interval, self::CRON_HOOK );
 		}
 	}
@@ -950,6 +973,10 @@ class Importer extends Markdown_Importer {
 				require_once ABSPATH . 'wp-admin/includes/image.php';
 			}
 			$name = sanitize_file_name( basename( $target['path'] ) );
+			if ( 'svg' === strtolower( pathinfo( $name, PATHINFO_EXTENSION ) ) && ! Transforms\Images\svg_is_safe( $bytes ) ) {
+				$this->log( "{$target['path']}: SVG contains script, event handlers, javascript:/data: links or foreignObject; not imported.", 'warning' );
+				return null;
+			}
 			$tmp  = wp_tempnam( $name );
 			if ( ! $tmp || false === file_put_contents( $tmp, $bytes ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 				return null;
@@ -1172,7 +1199,14 @@ class Importer extends Markdown_Importer {
 		$options = $this->pipeline_options();
 		unset( $options['base'], $options['lookup'], $options['import_image'], $options['file_url'] );
 		$paths = array_map( static fn( $doc ) => $doc['_path'] ?? '', $this->entries );
-		return self::TRANSFORM_VERSION . ':' . md5( wp_json_encode( $options ) . wp_json_encode( $this->source_map ) . wp_json_encode( $paths ) . home_url() );
+		// The manifest fields in the agent Markdown's front matter: a manifest-only change re-renders it.
+		$own = array();
+		if ( $this->current && is_array( $this->current['doc'] ?? null ) ) {
+			foreach ( array( 'title', 'description', 'type', 'status' ) as $field ) {
+				$own[ $field ] = $this->current['doc'][ $field ] ?? null;
+			}
+		}
+		return self::TRANSFORM_VERSION . ':' . md5( wp_json_encode( $options ) . wp_json_encode( $this->source_map ) . wp_json_encode( $paths ) . wp_json_encode( $own ) . home_url() );
 	}
 
 	/**

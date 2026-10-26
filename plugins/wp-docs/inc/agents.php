@@ -133,7 +133,7 @@ class Agents {
 	public static function current_page_id() {
 		if ( is_singular( POST_TYPE ) ) {
 			$id = (int) get_queried_object_id();
-			return 'publish' === get_post_status( $id ) ? $id : 0;
+			return 'publish' === get_post_status( $id ) && '' === (string) get_post_field( 'post_password', $id ) ? $id : 0;
 		}
 		if ( is_post_type_archive( POST_TYPE ) || ( is_front_page() && ! is_singular() ) ) {
 			return Permalinks::post_for_path( '' );

@@ -43,7 +43,7 @@ defined( 'WPINC' ) || die();
  *         'stamp'    => string Cache key the tree was built for.
  *     )
  *
- * Pages whose parent is not published are left out. Without an import (`wp_docs_last_import` empty) the
+ * Password-protected pages, and pages whose parent is not published, are left out. Without an import (`wp_docs_last_import` empty) the
  * tree is built on every request.
  *
  * @return array
@@ -54,7 +54,7 @@ function wp_docs_get_tree() {
 
 	$last  = get_option( 'wp_docs_last_import' );
 	$time  = is_array( $last ) && ! empty( $last['time'] ) ? (string) $last['time'] : '';
-	$stamp = '1|' . $time . '|' . home_url();
+	$stamp = '2|' . $time . '|' . home_url();
 
 	if ( null !== $tree && $tree_stamp === $stamp ) {
 		return $tree;
@@ -106,7 +106,7 @@ function wp_docs_build_tree() {
 		$wpdb->prepare(
 			"SELECT p.ID, p.post_title, p.post_parent, p.post_name, p.menu_order{$select}
 			FROM {$wpdb->posts} p{$joins}
-			WHERE p.post_type = %s AND p.post_status = 'publish'
+			WHERE p.post_type = %s AND p.post_status = 'publish' AND p.post_password = ''
 			ORDER BY p.menu_order ASC, p.post_title ASC, p.ID ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			'wp-docs'
 		)

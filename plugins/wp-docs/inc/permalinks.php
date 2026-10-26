@@ -76,7 +76,7 @@ class Permalinks {
 	}
 
 	/**
-	 * Post ID of the published page with a path ("" is the home), from the lookup.
+	 * Post ID of the published, not password-protected page with a path ("" is the home), from the lookup.
 	 *
 	 * @param string $path Path under /docs/, with or without slashes.
 	 * @return int 0 when there is none.
@@ -85,7 +85,7 @@ class Permalinks {
 		$path = trim( (string) $path, '/' );
 		$map  = (array) get_option( self::OPTION, array() );
 		$id   = isset( $map[ $path ] ) ? (int) $map[ $path ] : 0;
-		return $id && 'publish' === get_post_status( $id ) ? $id : 0;
+		return $id && 'publish' === get_post_status( $id ) && '' === (string) get_post_field( 'post_password', $id ) ? $id : 0;
 	}
 
 	/**
