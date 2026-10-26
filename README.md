@@ -158,6 +158,44 @@ Untested on WordPress.com: all of the above, in particular whether `/llms.txt` a
 root reach WordPress (they are rewrite rules, not files), how the edge cache treats `Vary: Accept` on page URLs
 (the `.md` URLs do not depend on it), and the request time limit for the webhook.
 
+## Static export
+
+`npm run export` (`node tools/export-static.mjs`) crawls the running site (default `--base http://localhost:8889`)
+into `static/` (gitignored) for Spacefast or any static host. It is read-only against the site. Measured on
+2026-10-26: 237 pages, 237 Markdown files, 107 assets, 341 redirects, about 32 MB, 8 seconds.
+
+- Pages: every `/docs/` page as `<path>/index.html` (from `/docs/index.json` and the links on each page), the home
+  as `/index.html` and `/docs/index.html`, and the 404 template (from `/docs/does-not-exist/`) as `/404.html`.
+- Markdown: Spacefast does not serve `.md` but does serve `.txt`, so each page's `<path>.md` is saved as
+  `<path>/markdown.txt`, and every `.md` URL is rewritten to it: the `rel="alternate"` link, View as Markdown,
+  `data-md-url` (what Copy page fetches), the Open in ChatGPT and Claude prompts, `/llms.txt`,
+  `/llms-full.txt` and `/docs/index.json`.
+- Search: `/wp-json/wp-docs/v1/search-index` is saved as `/docs/search-index.json` and the docs bar's
+  `data-index-url` points at it (no fallback route, no server search). Search forms that post to this site are
+  removed (the 404 page's); the home hero field stays without an action (it only opens the palette); the global
+  header's wordpress.org search is untouched.
+- Assets on this host (stylesheets, scripts, script modules and the import map, fonts, uploads, Prism's language
+  components for the languages used) are downloaded; absolute URLs become root-relative and `?ver=` is dropped.
+  Remote images stay remote. Font files the vendored global fonts stylesheet declares but that are not vendored
+  are listed as "not failures": the site does not have them either and no page uses them.
+- Shared fragments: inline stylesheets over 1 KB become hashed files under `/shared/css/`, and the sidebar list
+  (identical on every page once the current-page markers are removed) becomes one hashed script under `/shared/`
+  that writes it during parsing, followed by an inline script that marks the current page and opens its
+  ancestors before `sidebar.js` runs. Pages are about 105 KB instead of 215 KB. A page whose sidebar differs
+  keeps its own copy and is reported.
+- `sf.jsonc`: `cleanUrls`, the title and description, and the plugin's `redirect_from` map as 301s, read from the
+  `wp_docs_redirects` option with `npx wp-env run cli wp eval` (the plugin has no endpoint for it), or from
+  `--redirects map.json` (`{ "/old/path": "/docs/new/" }`).
+- `--public-url https://example.com` makes URLs absolute in the agent files, the Markdown, canonical links and
+  the AI prompts. Without it they are root-relative, and a small inline script puts the host's origin into the
+  prompt and "Report a problem" links at runtime.
+
+Failures (non-200 pages, Markdown, assets, agent files, redirects) are listed at the end; the script exits
+non-zero only when it crashes. Checked on 2026-10-26 by serving `static/` with `python3 -m http.server` and
+opening the home, a section landing and four leaf pages in Playwright: no failed requests or 404s, none to
+the wp-env site, the sidebar state identical to the live site's on each page, the palette returns results,
+Copy page fetches `markdown.txt` and fills the clipboard. Not tested on Spacefast itself.
+
 ## Status
 
 2026-10-26.
