@@ -2,17 +2,20 @@
 /**
  * Change (i): import webhook.
  *
- * `POST /wp-json/wp-docs/v1/import` with a shared secret schedules an immediate import, so a GitHub
- * Action can trigger the import on merge instead of waiting for the next 15-minute cron run.
+ * `POST /wp-json/wp-docs/v1/import` with a shared secret runs the import at once (manifest stage, then
+ * Markdown stage) and answers with what it did, so the content repository's CI can trigger it on every push
+ * to `trunk` instead of waiting for the next 15-minute cron run.
  *
  * Authentication, either:
  * - header `X-WP-Docs-Secret: <secret>`; or
  * - GitHub's `X-Hub-Signature-256: sha256=<HMAC-SHA256 of the raw body with the secret>` (a repository
  *   webhook pointed straight at the endpoint).
  *
- * The secret is the WP_DOCS_WEBHOOK_SECRET constant (or the `wp_docs_webhook_secret` filter).
- * Without a secret the endpoint is disabled. Body (JSON or form): `manifest` (optional, a manifest
- * name; empty imports all), `force` (optional, ignore ETags).
+ * The secret is the WP_DOCS_WEBHOOK_SECRET constant (or the `wp_docs_webhook_secret` filter). Without a
+ * secret the endpoint is disabled (503). Body (JSON or form, optional): `force` (ignore ETags).
+ *
+ * Response: `{ imported, warnings, pages, unchanged, errors, removed, time }` where `imported` is the
+ * number of pages whose content changed and `warnings` the list of warning messages.
  *
  * @package WP_Docs
  */
@@ -49,11 +52,7 @@ class Webhook {
 				'callback'            => array( __CLASS__, 'handle' ),
 				'permission_callback' => array( __CLASS__, 'authorize' ),
 				'args'                => array(
-					'manifest' => array(
-						'type'    => 'string',
-						'default' => '',
-					),
-					'force'    => array(
+					'force' => array(
 						'type'    => 'boolean',
 						'default' => false,
 					),
@@ -102,32 +101,29 @@ class Webhook {
 	}
 
 	/**
-	 * Schedule the import.
+	 * Run the import.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function handle( WP_REST_Request $request ) {
-		$manifest = sanitize_file_name( (string) $request->get_param( 'manifest' ) );
-		$manifest = preg_replace( '/\.json$/', '', $manifest );
-		if ( '' !== $manifest && ! in_array( $manifest, Manifests::names(), true ) ) {
-			return new WP_Error( 'wp_docs_unknown_manifest', "Unknown manifest \"{$manifest}\".", array( 'status' => 400 ) );
+		$summary = Importer::instance()->run( array( 'force' => (bool) $request->get_param( 'force' ) ) );
+		if ( is_wp_error( $summary ) ) {
+			$status = false !== strpos( $summary->get_error_message(), 'still running' ) ? 409 : 500;
+			return new WP_Error( 'wp_docs_import_failed', $summary->get_error_message(), array( 'status' => $status ) );
 		}
-
-		$args = array( '' === $manifest ? null : $manifest, (bool) $request->get_param( 'force' ) );
-		if ( ! wp_next_scheduled( Importer::CRON_HOOK, $args ) ) {
-			wp_schedule_single_event( time(), Importer::CRON_HOOK, $args );
-		}
-		// Run the scheduled event now rather than on the next page view.
-		spawn_cron();
 
 		return new WP_REST_Response(
 			array(
-				'scheduled' => true,
-				'manifest'  => '' === $manifest ? 'all' : $manifest,
-				'force'     => $args[1],
+				'imported'  => (int) $summary['updated'],
+				'warnings'  => array_values( (array) $summary['warning_list'] ),
+				'pages'     => (int) $summary['pages'],
+				'unchanged' => (int) $summary['unchanged'],
+				'errors'    => (int) $summary['errors'],
+				'removed'   => array_values( (array) $summary['removed'] ),
+				'time'      => $summary['time'],
 			),
-			202
+			200
 		);
 	}
 }

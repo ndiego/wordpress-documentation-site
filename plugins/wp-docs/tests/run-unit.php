@@ -59,10 +59,11 @@ check( 'fm absent leaves thematic break', array( $present, $body ), array( false
 list( , $body, $present ) = Front_Matter\split( "---\n\nJust a rule and no closing fence\n" );
 check( 'fm unclosed is not front matter', $present, false );
 
-$n = Front_Matter\normalize( array( 'audience' => 'user', 'generated' => null, 'title' => ' T ' ) );
-check( 'fm normalize scalar audience to list', $n['audience'], array( 'user' ) );
-check( 'fm normalize generated null', $n['generated'], null );
+$n = Front_Matter\normalize( array( 'redirect_from' => '/old/', 'title' => ' T ', 'type' => 'guide', 'status' => 'placeholder', 'updated' => '2026-10-20', 'audience' => 'user' ) );
+check( 'fm normalize scalar redirect_from to list', $n['redirect_from'], array( '/old/' ) );
 check( 'fm normalize title trimmed', $n['title'], 'T' );
+check( 'fm normalize type, status, updated', array( $n['type'], $n['status'], $n['updated'] ), array( 'guide', 'placeholder', '2026-10-20' ) );
+check( 'fm normalize drops unknown fields', isset( $n['audience'] ), false );
 
 /*
  * (a) Alerts.

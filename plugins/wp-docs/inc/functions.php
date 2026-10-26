@@ -1,6 +1,6 @@
 <?php
 /**
- * Helpers shared by the importer, the CLI and local sources.
+ * Helpers shared by the importer, the endpoints, the CLI and local sources.
  *
  * @package WP_Docs
  */
@@ -8,6 +8,16 @@
 namespace WP_Docs;
 
 defined( 'WPINC' ) || die();
+
+/**
+ * Default manifest: `manifest.json` on the content repository's default branch.
+ */
+const DEFAULT_MANIFEST = 'https://raw.githubusercontent.com/ndiego/wordpress-documentation/trunk/manifest.json';
+
+/**
+ * Option holding the last import summary ({time, pages, warnings, ...}). Every cache is keyed by it.
+ */
+const LAST_IMPORT_OPTION = 'wp_docs_last_import';
 
 /**
  * Text of the first paragraph block, for the excerpt.
@@ -43,21 +53,54 @@ function output_mode( $post_id = 0 ) {
 }
 
 /**
- * Repository aliases: which GitHub repositories correspond to which local paths.
+ * Where the manifest is read from: WP_DOCS_MANIFEST (a URL or a file path), else the raw GitHub URL of
+ * `manifest.json` on `trunk`. A run can override it (`wp wp-docs import --manifest=<url|path>`).
+ *
+ * @return string
+ */
+function manifest_location() {
+	$location = Local_Sources::$manifest_override;
+	if ( '' === $location ) {
+		$location = defined( 'WP_DOCS_MANIFEST' ) && WP_DOCS_MANIFEST ? (string) WP_DOCS_MANIFEST : DEFAULT_MANIFEST;
+	}
+
+	/**
+	 * Filters where the manifest is read from: a URL or a file path.
+	 *
+	 * @param string $location Location.
+	 */
+	return (string) apply_filters( 'wp_docs_manifest_location', $location );
+}
+
+/**
+ * The content repository as `owner/repo`, and the branch the manifest's sources point at.
+ *
+ * @return array{repo: string, ref: string}
+ */
+function content_repo() {
+	return array(
+		'repo' => defined( 'WP_DOCS_REPO' ) ? (string) WP_DOCS_REPO : 'ndiego/wordpress-documentation',
+		'ref'  => defined( 'WP_DOCS_REF' ) ? (string) WP_DOCS_REF : 'trunk',
+	);
+}
+
+/**
+ * Repository aliases: which GitHub repository corresponds to the local content checkout.
  *
  * @return array 'owner/repo' => [ 'prefix' => string, 'ref' => string ].
  */
 function repo_aliases() {
+	$repo    = content_repo();
 	$aliases = array(
-		( defined( 'WP_DOCS_HUB_REPO' ) ? WP_DOCS_HUB_REPO : 'ndiego/wordpress-documentation' ) => array(
+		$repo['repo'] => array(
 			'prefix' => '',
-			'ref'    => defined( 'WP_DOCS_HUB_REF' ) ? WP_DOCS_HUB_REF : 'trunk',
+			'ref'    => $repo['ref'],
 		),
 	);
 
 	/**
-	 * Filters the repository aliases. The hub repository maps to the repository root; add spokes with
-	 * their `.spokes/<name>/` prefix so offline imports get GitHub edit links and cross-links resolve.
+	 * Filters the repository aliases. The content repository maps to the root of the local checkout
+	 * (WP_DOCS_PREFER_LOCAL reads its files from there).
 	 *
 	 * @param array $aliases 'owner/repo' => [ 'prefix' => '', 'ref' => 'trunk' ].
 	 */
@@ -109,4 +152,50 @@ function fetch_commit_sha( array $source ) {
 	$data = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 	$sha  = $data[0]['sha'] ?? null;
 	return is_string( $sha ) && preg_match( '/^[0-9a-f]{40}$/', $sha ) ? $sha : null;
+}
+
+/**
+ * The stamp every cache is keyed by: the time of the last import.
+ *
+ * @return string Empty before the first import.
+ */
+function import_stamp() {
+	$last = get_option( LAST_IMPORT_OPTION );
+	return is_array( $last ) && ! empty( $last['time'] ) ? (string) $last['time'] : '';
+}
+
+/**
+ * A value cached until the next import. Without an import the value is built on every call.
+ *
+ * @param string   $name  Cache name.
+ * @param callable $build Builder.
+ * @return mixed
+ */
+function cached( $name, callable $build ) {
+	static $memo = array();
+	$stamp = import_stamp() . '|' . home_url();
+	if ( isset( $memo[ $name ] ) && $memo[ $name ][0] === $stamp ) {
+		return $memo[ $name ][1];
+	}
+	$key = 'wp_docs_cache_' . $name;
+	if ( '' !== import_stamp() ) {
+		$cached = get_transient( $key );
+		if ( is_array( $cached ) && ( $cached['stamp'] ?? null ) === $stamp && array_key_exists( 'value', $cached ) ) {
+			$memo[ $name ] = array( $stamp, $cached['value'] );
+			return $cached['value'];
+		}
+	}
+	$value = $build();
+	if ( '' !== import_stamp() ) {
+		set_transient(
+			$key,
+			array(
+				'stamp' => $stamp,
+				'value' => $value,
+			),
+			WEEK_IN_SECONDS
+		);
+	}
+	$memo[ $name ] = array( $stamp, $value );
+	return $value;
 }

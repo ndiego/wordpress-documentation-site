@@ -280,10 +280,10 @@ function split_flow( string $inner ): array {
 }
 
 /**
- * Normalise the hub's front matter fields (conventions/markdown.md, AGENTS.md).
+ * Normalise the front matter fields of the content repository (its conventions/front-matter.md).
  *
  * @param array $data Parsed front matter.
- * @return array{title: string, description: string, audience: string[], redirect_from: string[], applies_to: string[], generated: ?array, id: string, section: string}
+ * @return array{id: string, title: string, description: string, type: string, status: string, updated: string, redirect_from: string[], applies_to: string[]}
  */
 function normalize( array $data ): array {
 	$list = static function ( $value ): array {
@@ -293,20 +293,16 @@ function normalize( array $data ): array {
 		$value = is_array( $value ) ? $value : array( $value );
 		return array_values( array_filter( array_map( 'strval', $value ), 'strlen' ) );
 	};
-
-	$generated = $data['generated'] ?? null;
-	if ( ! is_array( $generated ) || ! $generated ) {
-		$generated = null;
-	}
+	$text = static fn( $key ) => isset( $data[ $key ] ) && is_scalar( $data[ $key ] ) ? trim( (string) $data[ $key ] ) : '';
 
 	return array(
-		'id'            => isset( $data['id'] ) ? (string) $data['id'] : '',
-		'title'         => isset( $data['title'] ) ? trim( (string) $data['title'] ) : '',
-		'section'       => isset( $data['section'] ) ? (string) $data['section'] : '',
-		'description'   => isset( $data['description'] ) ? trim( (string) $data['description'] ) : '',
-		'audience'      => $list( $data['audience'] ?? null ),
+		'id'            => $text( 'id' ),
+		'title'         => $text( 'title' ),
+		'description'   => $text( 'description' ),
+		'type'          => $text( 'type' ),
+		'status'        => $text( 'status' ),
+		'updated'       => $text( 'updated' ),
 		'redirect_from' => $list( $data['redirect_from'] ?? null ),
 		'applies_to'    => $list( $data['applies_to'] ?? null ),
-		'generated'     => $generated,
 	);
 }

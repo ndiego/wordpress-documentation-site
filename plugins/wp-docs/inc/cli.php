@@ -19,44 +19,31 @@ defined( 'WPINC' ) || die();
 class CLI {
 
 	/**
-	 * Import manifests: manifest stage, then Markdown stage, then removals and redirects.
+	 * Import the manifest: manifest stage, then Markdown stage, then removals and redirects.
 	 *
 	 * ## OPTIONS
-	 *
-	 * [--manifest=<name>]
-	 * : Import one manifest (file name with or without .json).
-	 *
-	 * [--all]
-	 * : Import every manifest (the default when --manifest is not given).
 	 *
 	 * [--force]
 	 * : Ignore stored ETags and re-import every page.
 	 *
-	 * [--local]
-	 * : Use the offline manifests written by scripts/assemble.py (.spokes/manifest/ in the repository
-	 * checkout at WP_DOCS_REPO_PATH) and read files from disk.
+	 * [--manifest=<url-or-path>]
+	 * : Import from this manifest instead of WP_DOCS_MANIFEST, for this run only. When it is a file, its
+	 * directory is the content checkout local files are read from (unless WP_DOCS_CONTENT_PATH is set).
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp wp-docs import --all
-	 *     wp wp-docs import --manifest=themes --force
-	 *     wp wp-docs import --all --local
+	 *     wp wp-docs import
+	 *     wp wp-docs import --force
+	 *     wp wp-docs import --manifest=/var/www/html/wp-docs-tools/sample-content/manifest.json
 	 *
 	 * @param array $args       Positional.
 	 * @param array $assoc_args Named.
 	 */
 	public function import( $args, $assoc_args ) {
-		$manifest = Utils\get_flag_value( $assoc_args, 'manifest', null );
-		if ( $manifest && Utils\get_flag_value( $assoc_args, 'all', false ) ) {
-			WP_CLI::error( 'Use either --manifest or --all.' );
-		}
-		$manifest = $manifest ? preg_replace( '/\.json$/', '', basename( (string) $manifest ) ) : null;
-
 		$summary = Importer::instance()->run(
 			array(
-				'manifest' => $manifest,
 				'force'    => (bool) Utils\get_flag_value( $assoc_args, 'force', false ),
-				'local'    => Utils\get_flag_value( $assoc_args, 'local', false ) ? true : null,
+				'manifest' => (string) Utils\get_flag_value( $assoc_args, 'manifest', '' ),
 			)
 		);
 		if ( is_wp_error( $summary ) ) {
@@ -67,7 +54,7 @@ class CLI {
 			sprintf(
 				'%d pages from %s: %d updated, %d unchanged, %d errors, %d restored, %d unpublished, %d warnings.',
 				$summary['pages'],
-				implode( ', ', $summary['manifests'] ),
+				$summary['manifest'],
 				$summary['updated'],
 				$summary['unchanged'],
 				$summary['errors'],
@@ -106,7 +93,7 @@ class CLI {
 		$removed  = array();
 		foreach ( $query->posts as $post ) {
 			$section = (string) get_post_meta( $post->ID, '_wp_docs_section', true );
-			$section = '' === $section ? '(none)' : $section;
+			$section = '' === $section ? '(home)' : $section;
 			if ( ! isset( $sections[ $section ] ) ) {
 				$sections[ $section ] = array(
 					'section'   => $section,
@@ -152,9 +139,9 @@ class CLI {
 		if ( is_array( $last ) ) {
 			WP_CLI::log(
 				sprintf(
-					'Last import: %s (%s), %d pages, %d updated, %d errors, %d warnings.',
+					'Last import: %s from %s, %d pages, %d updated, %d errors, %d warnings.',
 					$last['time'],
-					implode( ', ', (array) $last['manifests'] ),
+					(string) ( $last['manifest'] ?? '' ),
 					$last['pages'],
 					$last['updated'],
 					$last['errors'],
@@ -166,7 +153,8 @@ class CLI {
 		}
 		$next = wp_next_scheduled( Importer::CRON_HOOK );
 		WP_CLI::log( 'Next scheduled import: ' . ( $next ? gmdate( 'c', $next ) : 'none' ) );
-		WP_CLI::log( 'Manifests: ' . Manifests::location() );
+		WP_CLI::log( 'Manifest: ' . manifest_location() );
+		WP_CLI::log( 'Content checkout: ' . Local_Sources::content_path() . ( Local_Sources::prefer_local() ? ' (preferred over GitHub: WP_DOCS_PREFER_LOCAL)' : ' (used for repository-relative sources only)' ) );
 		WP_CLI::log( 'Output mode: ' . output_mode() );
 	}
 

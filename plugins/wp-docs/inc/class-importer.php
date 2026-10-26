@@ -1,8 +1,8 @@
 <?php
 /**
- * The hub importer: a subclass of the WordPress.org Markdown importer (`wporg-markdown`).
+ * The importer: a subclass of the WordPress.org Markdown importer (`wporg-markdown`).
  *
- * Imports `manifest/*.json` into the `wp-docs` post type. Everything the stock importer does is kept
+ * Imports the content repository's `manifest.json` into the `wp-docs` post type. Everything the stock importer does is kept
  * (manifest stage, Markdown stage, ETags, title from the first H1, kses); this class only fills in the
  * abstract methods, overrides four protected methods with calls to the parent, and hooks the
  * transforms into the stock filters. See IMPORTER-CHANGES.md for what each change does and which ones
@@ -23,14 +23,14 @@ use WordPressdotorg\Markdown\Importer as Markdown_Importer;
 defined( 'WPINC' ) || die();
 
 /**
- * Hub importer.
+ * Documentation importer.
  */
 class Importer extends Markdown_Importer {
 
 	/**
 	 * Bump when a transform changes, so stored ETags stop short-circuiting re-imports.
 	 */
-	const TRANSFORM_VERSION = 1;
+	const TRANSFORM_VERSION = 2;
 
 	/**
 	 * Cron hook for the full, ordered import (manifest stage, then Markdown stage).
@@ -40,7 +40,12 @@ class Importer extends Markdown_Importer {
 	/**
 	 * Option holding the last import summary.
 	 */
-	const LAST_IMPORT_OPTION = 'wp_docs_last_import';
+	const LAST_IMPORT_OPTION = LAST_IMPORT_OPTION;
+
+	/**
+	 * Lock held while an import runs (cron, webhook and CLI must not overlap).
+	 */
+	const LOCK = 'wp_docs_import_lock';
 
 	/**
 	 * Singleton.
@@ -57,14 +62,14 @@ class Importer extends Markdown_Importer {
 	protected $manifest_url = '';
 
 	/**
-	 * Every normalised manifest entry, keyed by path (all manifests, for link resolution).
+	 * Every normalised manifest entry, keyed by path (for link resolution).
 	 *
 	 * @var array<string,array>
 	 */
 	protected $entries = array();
 
 	/**
-	 * Manifest key by page id (all manifests).
+	 * Manifest key by page id.
 	 *
 	 * @var array<string,string>
 	 */
@@ -116,7 +121,7 @@ class Importer extends Markdown_Importer {
 	public function init() {
 		add_filter( 'cron_schedules', array( $this, 'filter_cron_schedules' ) );
 		add_action( 'init', array( $this, 'register_cron_jobs' ) );
-		add_action( self::CRON_HOOK, array( $this, 'cron_import' ), 10, 2 );
+		add_action( self::CRON_HOOK, array( $this, 'cron_import' ) );
 
 		add_filter( 'wporg_markdown_before_transform', array( $this, 'before_transform' ), 10, 2 );
 		add_filter( 'wporg_markdown_after_transform', array( $this, 'after_transform' ), 10, 2 );
@@ -168,21 +173,19 @@ class Importer extends Markdown_Importer {
 	 */
 
 	/**
-	 * Import one manifest or all of them, in order: manifest stage, Markdown stage, removals, redirects.
+	 * Import the manifest, in order: manifest stage, Markdown stage, removals, redirects.
 	 *
 	 * @param array $args {
-	 *     @type string|null $manifest Manifest name (file name without .json). Null for all.
-	 *     @type bool        $force    Ignore stored ETags.
-	 *     @type bool        $local    Use the offline manifests (manifest/local/).
+	 *     @type bool   $force    Ignore stored ETags and re-import every page.
+	 *     @type string $manifest A manifest URL or file path for this run only (default: WP_DOCS_MANIFEST).
 	 * }
 	 * @return array|WP_Error Summary.
 	 */
 	public function run( array $args = array() ) {
 		$args = array_merge(
 			array(
-				'manifest' => null,
 				'force'    => false,
-				'local'    => null,
+				'manifest' => '',
 			),
 			$args
 		);
@@ -191,45 +194,67 @@ class Importer extends Markdown_Importer {
 			return $this->fail( 'Pretty permalinks are required: the stock importer matches posts by permalink path. Run `wp rewrite structure /%postname%/`.' );
 		}
 
-		$loaded = Manifests::load( $args['local'] );
-		if ( is_wp_error( $loaded ) ) {
-			return $this->fail( $loaded->get_error_message() );
+		// One import at a time. The lock expires on its own if a run dies.
+		$lock = get_transient( self::LOCK );
+		if ( $lock && ( time() - (int) $lock ) < 10 * MINUTE_IN_SECONDS ) {
+			return $this->fail( 'Another import started at ' . gmdate( 'c', (int) $lock ) . ' is still running.' );
 		}
-		if ( $args['manifest'] && ! isset( $loaded['manifests'][ $args['manifest'] ] ) ) {
-			return $this->fail( sprintf( 'Unknown manifest "%s". Available: %s', $args['manifest'], implode( ', ', array_keys( $loaded['manifests'] ) ) ) );
+		set_transient( self::LOCK, time(), 10 * MINUTE_IN_SECONDS );
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 600 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		}
 
-		$this->warnings    = $loaded['warnings'];
+		Local_Sources::$manifest_override = (string) $args['manifest'];
+		try {
+			return $this->run_locked( (bool) $args['force'] );
+		} finally {
+			Local_Sources::$manifest_override = '';
+			delete_transient( self::LOCK );
+		}
+	}
+
+	/**
+	 * The import itself (see run()).
+	 *
+	 * @param bool $force Ignore ETags.
+	 * @return array|WP_Error
+	 */
+	protected function run_locked( $force ) {
+		$location = manifest_location();
+		$manifest = Local_Sources::load_manifest();
+		if ( is_wp_error( $manifest ) ) {
+			return $this->fail( $manifest->get_error_message() );
+		}
+
+		$this->warnings    = array();
 		$this->image_cache = array();
-		$normalized        = Manifest\normalize( $loaded['manifests'], $this->existing_paths() );
-		$this->warnings    = array_merge( $this->warnings, $normalized['warnings'] );
+		$normalized        = Manifest\normalize( array( 'manifest' => $manifest ), $this->existing_paths() );
+		$this->warnings    = $normalized['warnings'];
 		$this->entries     = $normalized['entries'];
 		$this->source_map  = Manifest\source_map( $this->entries, repo_aliases() );
 		$this->keys_by_id  = array();
 		foreach ( $this->entries as $key => $doc ) {
 			$this->keys_by_id[ (string) $doc['id'] ] = $key;
 		}
-
-		$names    = $args['manifest'] ? array( $args['manifest'] ) : array_keys( $loaded['manifests'] );
-		$selected = array_filter( $this->entries, static fn( $doc ) => in_array( $doc['_manifest'], $names, true ) );
+		$selected = $this->entries;
+		if ( ! $selected ) {
+			return $this->fail( "The manifest at {$location} has no importable entries." );
+		}
 
 		foreach ( $this->warnings as $warning ) {
 			$this->log( $warning, 'warning' );
 		}
 
 		$force_filter = static fn() => false;
-		if ( $args['force'] ) {
+		if ( $force ) {
 			add_filter( 'wporg_markdown_check_etags', $force_filter, 99 );
 		}
 
 		$restored = $this->restore_returning_pages( $selected );
 
 		// Manifest stage: the stock importer, fed the normalised manifest.
-		$this->manifest_url = Local_Sources::register_manifest(
-			$args['manifest'] ? $args['manifest'] : 'all',
-			Manifest\for_importer( $selected )
-		);
-		$result = $this->import_manifest();
+		$this->manifest_url = Local_Sources::register_manifest( 'manifest', Manifest\for_importer( $selected ) );
+		$result             = $this->import_manifest();
 		if ( is_wp_error( $result ) ) {
 			return $this->fail( $result->get_error_message() );
 		}
@@ -248,6 +273,7 @@ class Importer extends Markdown_Importer {
 				++$counts['errors'];
 				continue;
 			}
+			update_post_meta( $post->ID, '_wp_docs_manifest', $location );
 			$ret = $this->update_post_from_markdown_source( $post->ID );
 			if ( is_wp_error( $ret ) ) {
 				$this->log( "{$path}: " . $ret->get_error_message(), 'warning' );
@@ -260,43 +286,45 @@ class Importer extends Markdown_Importer {
 			}
 		}
 
-		$removed = $this->handle_removed( $names, $selected );
+		$removed = $this->handle_removed( $selected );
 		Permalinks::rebuild();
 		Redirects::rebuild();
 
-		if ( $args['force'] ) {
+		if ( $force ) {
 			remove_filter( 'wporg_markdown_check_etags', $force_filter, 99 );
 		}
 
 		$summary = array(
-			'time'      => gmdate( 'c' ),
-			'manifests' => $names,
-			'pages'     => count( $selected ),
-			'updated'   => $counts['updated'],
-			'unchanged' => $counts['unchanged'],
-			'errors'    => $counts['errors'],
-			'restored'  => $restored,
-			'removed'   => $removed,
-			'warnings'  => count( $this->warnings ),
+			'time'          => gmdate( 'c' ),
+			'pages'         => count( $selected ),
+			'warnings'      => count( $this->warnings ),
+			'manifest'      => $location,
+			'updated'       => $counts['updated'],
+			'unchanged'     => $counts['unchanged'],
+			'errors'        => $counts['errors'],
+			'restored'      => $restored,
+			'removed'       => $removed,
+			'warning_list'  => array_slice( $this->warnings, 0, 200 ),
 		);
 		update_option( self::LAST_IMPORT_OPTION, $summary, false );
+
+		/**
+		 * Fires after an import.
+		 *
+		 * @param array $summary The summary stored in `wp_docs_last_import`.
+		 */
+		do_action( 'wp_docs_imported', $summary );
 
 		return $summary;
 	}
 
 	/**
-	 * Cron and webhook entry point.
+	 * Cron entry point.
 	 *
-	 * @param string|null $manifest Manifest name or null for all.
-	 * @param bool        $force    Ignore ETags.
+	 * @param bool $force Ignore ETags.
 	 */
-	public function cron_import( $manifest = null, $force = false ) {
-		$this->run(
-			array(
-				'manifest' => $manifest ? (string) $manifest : null,
-				'force'    => (bool) $force,
-			)
-		);
+	public function cron_import( $force = false ) {
+		$this->run( array( 'force' => (bool) $force ) );
 	}
 
 	/**
@@ -345,7 +373,7 @@ class Importer extends Markdown_Importer {
 	 */
 
 	/**
-	 * New post: the stock creation, then the hub meta.
+	 * New post: the stock creation, then the meta.
 	 *
 	 * @param array    $doc         Manifest entry.
 	 * @param int|null $post_parent Parent post ID.
@@ -362,12 +390,12 @@ class Importer extends Markdown_Importer {
 	}
 
 	/**
-	 * Existing post: guard against the stock slug fallback, then the stock update, then the hub meta.
+	 * Existing post: guard against the stock slug fallback, then the stock update, then the meta.
 	 *
 	 * The stock importer matches an entry to an existing post by path, then by slug alone
-	 * (class-importer.php lines 169-173). With sixteen sections that share slugs such as `overview`,
-	 * the slug fallback would move one section's page onto another's (spike 04, case N). When the
-	 * matched post carries a different page id, a new post is created instead.
+	 * (class-importer.php lines 169-173). When two pages share a slug the fallback would move one onto the
+	 * other (spike 04, case N). When the matched post carries a different page id, a new post is created
+	 * instead.
 	 *
 	 * @param int   $post_id Matched post.
 	 * @param array $doc     Manifest entry.
@@ -565,6 +593,10 @@ class Importer extends Markdown_Importer {
 			return $response;
 		}
 
+		// The body as written, for the Markdown served to agents.
+		list( , $body_only )             = Transforms\Front_Matter\split( (string) wp_remote_retrieve_body( $response ) );
+		$this->current['markdown_body'] = $body_only;
+
 		/**
 		 * Filters whether front matter is parsed by the plugin (transform b). When false, the stock
 		 * regex strips it and its values are not used.
@@ -576,9 +608,9 @@ class Importer extends Markdown_Importer {
 			return $response;
 		}
 
-		list( $data, $body )             = Transforms\Front_Matter\split( (string) wp_remote_retrieve_body( $response ) );
-		$this->current['front_matter']   = Transforms\Front_Matter\normalize( $data );
-		$response['body']                = $body;
+		list( $data, $body )           = Transforms\Front_Matter\split( (string) wp_remote_retrieve_body( $response ) );
+		$this->current['front_matter'] = Transforms\Front_Matter\normalize( $data );
+		$response['body']              = $body;
 
 		return $response;
 	}
@@ -625,9 +657,9 @@ class Importer extends Markdown_Importer {
 			$options['mode'] = 'classic';
 			$out             = Pipeline\after_parse( $html, $options );
 		}
-		$this->current['report']        = $report;
-		$this->current['mode']          = $options['mode'];
-		$this->current['first_para']    = 'blocks' === $options['mode'] ? first_paragraph_text( $out ) : '';
+		$this->current['report']     = $report;
+		$this->current['mode']       = $options['mode'];
+		$this->current['first_para'] = 'blocks' === $options['mode'] ? first_paragraph_text( $out ) : '';
 
 		return $out;
 	}
@@ -646,7 +678,7 @@ class Importer extends Markdown_Importer {
 	}
 
 	/**
-	 * Excerpt: the front matter description, else the first paragraph. The stock excerpt is the first
+	 * Excerpt: the description (manifest, else front matter), else the first paragraph. The stock excerpt is the first
 	 * line of the tag-stripped HTML (line 505), which is a heading when the page starts with one, and
 	 * empty for block markup.
 	 *
@@ -658,7 +690,7 @@ class Importer extends Markdown_Importer {
 		if ( ! $this->current || empty( $postarr['ID'] ) || (int) $postarr['ID'] !== $this->current['post_id'] || ! isset( $postarr['post_content'] ) ) {
 			return $data;
 		}
-		$description = $this->current['front_matter']['description'] ?? '';
+		$description = $this->description_for( $this->current['doc'], (array) $this->current['front_matter'] );
 		if ( '' === $description && ! empty( $this->current['first_para'] ) ) {
 			$description = $this->current['first_para'];
 		}
@@ -691,7 +723,8 @@ class Importer extends Markdown_Importer {
 	 */
 
 	/**
-	 * Write the hub meta derived from the manifest entry.
+	 * Write the meta derived from the manifest entry (CONTRACT.md "Post meta"). Manifest fields win; the
+	 * page's front matter fills the ones the manifest leaves out.
 	 *
 	 * @param int   $post_id Post ID.
 	 * @param array $doc     Manifest entry.
@@ -699,29 +732,53 @@ class Importer extends Markdown_Importer {
 	protected function write_manifest_meta( $post_id, $doc ) {
 		$fm = $this->current && $this->current['post_id'] === (int) $post_id ? (array) $this->current['front_matter'] : array();
 
-		$audience   = ! empty( $doc['audience'] ) ? (array) $doc['audience'] : ( $fm['audience'] ?? array() );
-		$audience   = array_values( array_intersect( array( 'user', 'developer', 'contributor' ), array_map( 'strval', $audience ) ) );
 		$applies_to = ! empty( $doc['applies_to'] ) ? (array) $doc['applies_to'] : ( $fm['applies_to'] ?? array() );
-		$generated  = ! empty( $doc['generated'] ) ? $doc['generated'] : ( $fm['generated'] ?? null );
 		$redirects  = array_merge( (array) ( $doc['redirect_from'] ?? array() ), (array) ( $fm['redirect_from'] ?? array() ) );
 		$redirects  = Manifest\split_redirects( $redirects, strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) );
+		$path       = (string) ( $doc['_path'] ?? $doc['_key'] ?? '' );
 		// A redirect must never point at the page's own URL.
-		$own                = Manifest\normalize_redirect_path( '/docs/' . ( $doc['_path'] ?? $doc['_key'] ?? '' ) );
+		$own                = Manifest\normalize_redirect_path( '/docs/' . $path );
 		$redirects['paths'] = array_values( array_diff( $redirects['paths'], array( $own ) ) );
+
+		$section = isset( $doc['section'] ) && null !== $doc['section'] ? (string) $doc['section'] : (string) strtok( $path, '/' );
+		$type    = $this->field( $doc, $fm, 'type' );
+		$status  = $this->field( $doc, $fm, 'status' );
+		$updated = $this->field( $doc, $fm, 'updated' );
 
 		$meta = array(
 			'_wp_docs_id'                => (string) ( $doc['id'] ?? $doc['_key'] ?? '' ),
-			'_wp_docs_section'           => (string) ( $doc['section'] ?? strtok( (string) ( $doc['_key'] ?? '' ), '/' ) ),
-			'_wp_docs_audience'          => wp_json_encode( $audience ),
+			'_wp_docs_path'              => '' === $path ? '' : trailingslashit( $path ),
+			'_wp_docs_section'           => '' === $path ? '' : $section,
+			'_wp_docs_type'              => in_array( $type, array( 'tutorial', 'guide', 'concept', 'reference' ), true ) ? $type : '',
+			'_wp_docs_status'            => in_array( $status, array( 'placeholder', 'draft' ), true ) ? $status : '',
+			'_wp_docs_description'       => $this->description_for( $doc, $fm ),
+			'_wp_docs_updated'           => preg_match( '/^\d{4}-\d{2}-\d{2}$/', $updated ) ? $updated : '',
 			'_wp_docs_applies_to'        => wp_json_encode( array_values( array_map( 'strval', $applies_to ) ) ),
-			'_wp_docs_generated'         => $generated ? wp_json_encode( $generated ) : '',
-			'_wp_docs_tab'               => (string) ( $doc['tab'] ?? '' ),
-			'_wp_docs_manifest'          => (string) ( $doc['_manifest'] ?? '' ),
-			'_wp_docs_path'              => (string) ( $doc['_path'] ?? $doc['_key'] ?? '' ),
 			'_wp_docs_redirect_from'     => wp_json_encode( $redirects['paths'] ),
 			'_wp_docs_redirect_external' => wp_json_encode( $redirects['external'] ),
 		);
-		$meta = array_merge( $meta, $this->link_meta( $post_id ) );
+		$meta = array_merge( $meta, $this->link_meta( $post_id, wp_docs_path_url( $path ) ) );
+
+		// Outside the Markdown stage the front matter is unknown: keep what it gave last time for the
+		// fields the manifest does not carry.
+		if ( ! $fm ) {
+			$fields = array(
+				'_wp_docs_type'          => 'type',
+				'_wp_docs_status'        => 'status',
+				'_wp_docs_description'   => 'description',
+				'_wp_docs_updated'       => 'updated',
+				'_wp_docs_applies_to'    => 'applies_to',
+				'_wp_docs_redirect_from' => 'redirect_from',
+			);
+			foreach ( $fields as $key => $field ) {
+				if ( ! array_key_exists( $field, $doc ) && metadata_exists( 'post', $post_id, $key ) ) {
+					unset( $meta[ $key ] );
+					if ( 'redirect_from' === $field ) {
+						unset( $meta['_wp_docs_redirect_external'] );
+					}
+				}
+			}
+		}
 
 		foreach ( $meta as $key => $value ) {
 			update_post_meta( $post_id, $key, wp_slash( $value ) );
@@ -729,12 +786,43 @@ class Importer extends Markdown_Importer {
 	}
 
 	/**
+	 * A string field from the manifest entry, else from the front matter.
+	 *
+	 * @param array  $doc Manifest entry.
+	 * @param array  $fm  Normalised front matter.
+	 * @param string $key Field.
+	 * @return string
+	 */
+	protected function field( array $doc, array $fm, $key ) {
+		if ( isset( $doc[ $key ] ) && is_scalar( $doc[ $key ] ) && '' !== trim( (string) $doc[ $key ] ) ) {
+			return trim( (string) $doc[ $key ] );
+		}
+		return isset( $fm[ $key ] ) && is_scalar( $fm[ $key ] ) ? trim( (string) $fm[ $key ] ) : '';
+	}
+
+	/**
+	 * The page description: the manifest's, else the front matter's.
+	 *
+	 * @param array $doc Manifest entry.
+	 * @param array $fm  Normalised front matter.
+	 * @return string
+	 */
+	protected function description_for( array $doc, array $fm ) {
+		$description = isset( $doc['description'] ) && is_scalar( $doc['description'] ) ? trim( (string) $doc['description'] ) : '';
+		if ( '' === $description ) {
+			$description = trim( (string) ( $fm['description'] ?? '' ) );
+		}
+		return sanitize_text_field( $description );
+	}
+
+	/**
 	 * Source, edit and issue URLs for a post.
 	 *
-	 * @param int $post_id Post ID.
+	 * @param int    $post_id  Post ID.
+	 * @param string $page_url URL of the page on this site.
 	 * @return array<string,string>
 	 */
-	protected function link_meta( $post_id ) {
+	protected function link_meta( $post_id, $page_url ) {
 		$source = Sources\parse( (string) $this->get_markdown_source( $post_id ) );
 		$entry  = get_post_meta( $post_id, $this->manifest_entry_meta_key, true );
 		$github = ( is_array( $entry ) && ! empty( $entry['source_url'] ) ) ? Sources\parse( (string) $entry['source_url'] ) : null;
@@ -753,7 +841,7 @@ class Importer extends Markdown_Importer {
 		return array(
 			'_wp_docs_source_url' => Sources\blob_url( $github ),
 			'_wp_docs_edit_url'   => Sources\edit_url( $github ),
-			'_wp_docs_issue_url'  => Sources\issue_url( $github, (string) get_permalink( $post_id ), get_the_title( $post_id ), '' !== $commit ? $commit : null ),
+			'_wp_docs_issue_url'  => Sources\issue_url( $github, $page_url, get_the_title( $post_id ), '' !== $commit ? $commit : null ),
 		);
 	}
 
@@ -776,6 +864,36 @@ class Importer extends Markdown_Importer {
 
 		// Front matter can fill fields the manifest left empty, and the issue URL carries the commit.
 		$this->write_manifest_meta( $post_id, $this->current['doc'] );
+
+		update_post_meta( $post_id, '_wp_docs_markdown', wp_slash( $this->agent_markdown( $post_id ) ) );
+	}
+
+	/**
+	 * The page as Markdown for agents (`_wp_docs_markdown`), from the body fetched in this run.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	protected function agent_markdown( $post_id ) {
+		$options = $this->pipeline_options();
+		$base    = $this->current['source'];
+		$body    = (string) ( $this->current['markdown_body'] ?? '' );
+		$path    = (string) get_post_meta( $post_id, '_wp_docs_path', true );
+		$meta    = array(
+			'title'       => get_post_field( 'post_title', $post_id, 'raw' ),
+			'description' => (string) get_post_meta( $post_id, '_wp_docs_description', true ),
+			'type'        => (string) get_post_meta( $post_id, '_wp_docs_type', true ),
+			'url'         => wp_docs_path_url( $path ),
+			'source'      => (string) get_post_meta( $post_id, '_wp_docs_source_url', true ),
+			'status'      => (string) get_post_meta( $post_id, '_wp_docs_status', true ),
+		);
+		if ( ! $base ) {
+			return Transforms\Agent_Markdown\build( $body, $meta, static fn() => null, static fn() => null );
+		}
+		$no_links  = static fn() => null;
+		$link      = $options['links'] ? Transforms\Agent_Markdown\link_resolver( $base, $options['lookup'], $options['file_url'] ) : $no_links;
+		$image     = $options['images'] ? Transforms\Agent_Markdown\image_resolver( $base, $options['import_image'] ) : $no_links;
+		return Transforms\Agent_Markdown\build( $body, $meta, $link, $image );
 	}
 
 	/*
@@ -869,11 +987,10 @@ class Importer extends Markdown_Importer {
 	/**
 	 * Pages that left the manifest become drafts with a `_wp_docs_removed` flag. Never deleted.
 	 *
-	 * @param string[] $names    Manifests imported in this run.
-	 * @param array    $selected Their entries.
+	 * @param array $selected Entries of this run.
 	 * @return string[] Paths of the pages unpublished.
 	 */
-	protected function handle_removed( array $names, array $selected ) {
+	protected function handle_removed( array $selected ) {
 		/**
 		 * Filters whether pages missing from the manifest are unpublished.
 		 *
@@ -894,13 +1011,6 @@ class Importer extends Markdown_Importer {
 				'post_status'    => 'publish',
 				'posts_per_page' => -1,
 				'no_found_rows'  => true,
-				'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-					array(
-						'key'     => '_wp_docs_manifest',
-						'value'   => $names,
-						'compare' => 'IN',
-					),
-				),
 			)
 		);
 
@@ -1049,7 +1159,8 @@ class Importer extends Markdown_Importer {
 	protected function transform_signature() {
 		$options = $this->pipeline_options();
 		unset( $options['base'], $options['lookup'], $options['import_image'], $options['file_url'] );
-		return self::TRANSFORM_VERSION . ':' . md5( wp_json_encode( $options ) . wp_json_encode( $this->source_map ) );
+		$paths = array_map( static fn( $doc ) => $doc['_path'] ?? '', $this->entries );
+		return self::TRANSFORM_VERSION . ':' . md5( wp_json_encode( $options ) . wp_json_encode( $this->source_map ) . wp_json_encode( $paths ) . home_url() );
 	}
 
 	/**

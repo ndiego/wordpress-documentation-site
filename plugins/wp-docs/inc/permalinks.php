@@ -4,7 +4,8 @@
  * `_wp_docs_path`), independent of where the page sits in the tree. `post_parent` still comes from
  * `parent` and drives the sidebar.
  *
- * - `post_type_link` returns `home_url( '/docs/<path>/' )` for published pages that have a path.
+ * - `post_type_link` returns `home_url( '/docs/<path>/' )` for published pages that have a path, and
+ *   `/docs/` for the home (the manifest `index`, stored with an empty path).
  * - `parse_request` resolves `/docs/<path>/` to the page with that path; when no path matches, the
  *   normal hierarchical lookup runs unchanged.
  *
@@ -49,7 +50,7 @@ class Permalinks {
 		$map = array();
 		foreach ( $rows as $row ) {
 			$path = trim( (string) $row->meta_value, '/' );
-			if ( '' !== $path && ! isset( $map[ $path ] ) ) {
+			if ( ! isset( $map[ $path ] ) ) {
 				$map[ $path ] = (int) $row->post_id;
 			}
 		}
@@ -68,8 +69,23 @@ class Permalinks {
 		if ( POST_TYPE !== $post->post_type || 'publish' !== $post->post_status || ! get_option( 'permalink_structure' ) ) {
 			return $link;
 		}
-		$path = trim( (string) get_post_meta( $post->ID, '_wp_docs_path', true ), '/' );
-		return '' === $path ? $link : home_url( user_trailingslashit( '/docs/' . $path ) );
+		if ( ! metadata_exists( 'post', $post->ID, '_wp_docs_path' ) ) {
+			return $link;
+		}
+		return wp_docs_path_url( (string) get_post_meta( $post->ID, '_wp_docs_path', true ) );
+	}
+
+	/**
+	 * Post ID of the published page with a path ("" is the home), from the lookup.
+	 *
+	 * @param string $path Path under /docs/, with or without slashes.
+	 * @return int 0 when there is none.
+	 */
+	public static function post_for_path( $path ) {
+		$path = trim( (string) $path, '/' );
+		$map  = (array) get_option( self::OPTION, array() );
+		$id   = isset( $map[ $path ] ) ? (int) $map[ $path ] : 0;
+		return $id && 'publish' === get_post_status( $id ) ? $id : 0;
 	}
 
 	/**
@@ -82,14 +98,13 @@ class Permalinks {
 		if ( 0 !== strpos( $request, 'docs/' ) ) {
 			return;
 		}
-		$path = substr( $request, 5 );
-		$map  = (array) get_option( self::OPTION, array() );
-		if ( empty( $map[ $path ] ) || 'publish' !== get_post_status( (int) $map[ $path ] ) ) {
+		$id = self::post_for_path( substr( $request, 5 ) );
+		if ( ! $id ) {
 			return;
 		}
 		$wp->query_vars = array(
 			'post_type' => POST_TYPE,
-			'p'         => (int) $map[ $path ],
+			'p'         => $id,
 		);
 	}
 }

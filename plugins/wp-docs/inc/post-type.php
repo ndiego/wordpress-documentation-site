@@ -1,6 +1,6 @@
 <?php
 /**
- * The `wp-docs` post type and its meta (AGENTS.md "Post type" and "Post meta").
+ * The `wp-docs` post type and its meta (CONTRACT.md, "Post type" and "Post meta").
  *
  * @package WP_Docs
  */
@@ -22,14 +22,14 @@ function register_post_type() {
 		POST_TYPE,
 		array(
 			'labels'       => array(
-				'name'          => 'Docs',
+				'name'          => 'Documentation',
 				'singular_name' => 'Docs page',
 				'add_new_item'  => 'Add docs page',
 				'edit_item'     => 'Edit docs page',
 				'all_items'     => 'All docs pages',
 				'search_items'  => 'Search docs',
 			),
-			'description'  => 'WordPress.org documentation, imported from Markdown on GitHub.',
+			'description'  => 'WordPress documentation, imported from Markdown on GitHub.',
 			'public'       => true,
 			'hierarchical' => true,
 			'has_archive'  => true,
@@ -53,24 +53,28 @@ function register_post_type() {
  */
 function meta_keys() {
 	return array(
-		'_wp_docs_id'                => 'Stable page id from structure.yaml.',
-		'_wp_docs_section'           => 'Section slug.',
-		'_wp_docs_audience'          => 'JSON list, subset of ["user","developer","contributor"].',
+		// CONTRACT.md, "Post meta written by the importer".
+		'_wp_docs_id'                => 'Stable page id (manifest `id`, default: the path without trailing slash).',
+		'_wp_docs_path'              => 'URL path under /docs/ with a trailing slash; empty for the home.',
+		'_wp_docs_section'           => 'First path segment; empty for the home.',
+		'_wp_docs_type'              => 'tutorial, guide, concept or reference.',
+		'_wp_docs_status'            => 'Empty, placeholder or draft.',
+		'_wp_docs_description'       => 'The front matter description (also the excerpt).',
+		'_wp_docs_updated'           => 'YYYY-MM-DD from front matter, or empty.',
 		'_wp_docs_source_url'        => 'GitHub blob URL of the Markdown file.',
 		'_wp_docs_edit_url'          => 'GitHub edit URL of the Markdown file.',
-		'_wp_docs_issue_url'         => 'Prefilled new-issue URL in the owning repository.',
+		'_wp_docs_issue_url'         => 'Prefilled new-issue URL in the content repository.',
 		'_wp_docs_commit'            => 'Commit SHA of the imported revision; empty when unknown.',
 		'_wp_docs_imported'          => 'ISO 8601 time of the last content import.',
-		'_wp_docs_generated'         => 'Empty, or JSON {by, from} for generated pages.',
-		'_wp_docs_applies_to'        => 'JSON list of reference ids the page explains.',
-		'_wp_docs_tab'               => 'Tab of the page\'s section: docs, build or reference (manifest `tab`).',
-		// Plugin bookkeeping (not in the AGENTS.md contract; additive).
-		'_wp_docs_path'              => 'Path under /docs/ (the manifest key).',
-		'_wp_docs_manifest'          => 'Name of the manifest the page comes from.',
-		'_wp_docs_redirect_from'     => 'JSON list of same-host paths that redirect here.',
-		'_wp_docs_redirect_external' => 'JSON list of other-host URLs that should redirect here (not served by this site).',
+		'_wp_docs_markdown'          => 'The page as Markdown for agents: front matter, then the body with absolute links.',
+		'_wp_docs_redirect_from'     => 'JSON list of root-relative paths that 301 here.',
+		// Bookkeeping.
+		'_wp_docs_manifest'          => 'Manifest location the page was last imported from.',
 		'_wp_docs_removed'           => 'ISO 8601 time the page left the manifest (the post is a draft).',
 		'_wp_docs_output_mode'       => 'classic or blocks.',
+		'_wp_docs_transform'         => 'Signature of the transforms the content was imported with.',
+		'_wp_docs_applies_to'        => 'JSON list of reference ids the page explains.',
+		'_wp_docs_redirect_external' => 'JSON list of other-host URLs in redirect_from (not served by this site).',
 	);
 }
 
