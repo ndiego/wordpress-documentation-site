@@ -1,22 +1,24 @@
 <?php
 /**
- * Hub manifests: load, normalise and merge `manifest/*.json`.
+ * The manifest: load, normalise and look up `manifest.json` from the content repository.
  *
- * The format is the stock importer's (wporg-markdown README.md): an object keyed by the page's path,
- * each entry with `title`, `slug`, `parent` (the parent's key), `order` and `markdown_source`, parents
- * before children. The hub adds `id`, `section`, `audience`, `redirect_from`, `generated` and
- * `applies_to` (AGENTS.md), which the stock importer ignores.
+ * The format is the stock importer's (wporg-markdown README.md): an object keyed by the page key (the path
+ * without trailing slash), each entry with `title`, `slug`, `parent` (the parent's key), `order` and
+ * `markdown_source`, parents before children. CONTRACT.md adds `id`, `path`, `section`, `type`, `status`,
+ * `description`, `updated`, `redirect_from` and `applies_to`, which the stock importer ignores. The home is
+ * the key `index` with `path: ""`.
  *
  * Normalisation makes the manifest safe for the stock importer:
- * - A page with `parent: null` whose `section` is not itself is attached to its section's top-level post.
  * - Keys are rewritten to the parent/slug chain (the hierarchy the stock importer builds) and `parent`
- *   values are remapped the same way. The page's URL is the manifest's `path` field when present
- *   (kept as `_path`), so the URL design does not have to follow the tree.
+ *   values are remapped the same way. The page's URL is the manifest's `path` field when present (kept as
+ *   `_path`), so the URL does not have to follow the slugs. An entry with `path: ""` is the home (`_path`
+ *   is empty).
  * - Entries whose parent is unknown are dropped with a warning instead of reaching the stock importer's
  *   recursive `process_manifest_doc( $manifest[ $parent ] )` with a missing key (line 213).
- * - Repository-relative `markdown_source` paths (the offline manifests in `manifest/local/`) become
- *   local URLs served from disk; their `source_url` (the GitHub blob URL) is kept for provenance and
- *   link matching.
+ * - Repository-relative `markdown_source` paths become local URLs served from the content checkout.
+ *
+ * `normalize()` accepts several manifests (name => decoded JSON) for testing and for merging; the plugin
+ * passes one, named `manifest`.
  *
  * Pure PHP, no WordPress dependency.
  *
@@ -79,7 +81,7 @@ function normalize( array $manifests, array $known_paths = array() ): array {
 		}
 	}
 
-	// Section mapping: top-level pages of a section hang under the section's root entry.
+	// Section mapping: a top-level entry whose `section` names another entry hangs under that entry.
 	foreach ( $raw as $key => &$doc ) {
 		$section = isset( $doc['section'] ) ? (string) $doc['section'] : '';
 		if ( empty( $doc['parent'] ) && '' !== $section && $section !== $key && $section !== $doc['slug'] && ( $doc['id'] ?? '' ) !== $section ) {
@@ -129,11 +131,14 @@ function normalize( array $manifests, array $known_paths = array() ): array {
 		return $paths[ $key ] = false === $parent_path ? false : $parent_path . '/' . $doc['slug']; // phpcs:ignore Squiz.PHP.DisallowMultipleAssignments.Found
 	};
 
+	$parent_path_of = static fn( $path ) => false === strpos( $path, '/' ) ? null : substr( $path, 0, strrpos( $path, '/' ) );
+
 	$entries = array();
+	$homes   = 0;
 	foreach ( $raw as $key => $doc ) {
 		$path = $resolve( $key );
 		if ( false === $path ) {
-			$warnings[] = "{$doc['_manifest']}: parent \"{$doc['parent']}\" of {$key} is not in the manifests or the site; skipped (import its manifest first, or use --all).";
+			$warnings[] = "{$doc['_manifest']}: parent \"{$doc['parent']}\" of {$key} is not in the manifests or the site; skipped.";
 			continue;
 		}
 		if ( isset( $entries[ $path ] ) ) {
@@ -143,11 +148,22 @@ function normalize( array $manifests, array $known_paths = array() ): array {
 		if ( $path !== $key ) {
 			$doc['_original_key'] = $key;
 		}
-		// The designed URL path under /docs/ (manifest `path`), else the parent/slug chain.
-		$doc['_path'] = isset( $doc['path'] ) && '' !== trim( (string) $doc['path'], '/' ) ? trim( (string) $doc['path'], '/' ) : $path;
+		// The designed URL path under /docs/ (manifest `path`), else the parent/slug chain. `path: ""` is the home.
+		if ( array_key_exists( 'path', $doc ) && null !== $doc['path'] ) {
+			$doc['_path'] = trim( (string) $doc['path'], '/' );
+		} else {
+			$doc['_path'] = $path;
+		}
+		if ( '' === $doc['_path'] && null !== $parent_path_of( $path ) ) {
+			$warnings[] = "{$doc['_manifest']}: {$key} has an empty path but a parent; only a top-level entry can be the home. Using {$path}.";
+			$doc['_path'] = $path;
+		}
+		if ( '' === $doc['_path'] && ++$homes > 1 ) {
+			$warnings[] = "{$doc['_manifest']}: {$key} is a second entry with an empty path (the home); skipped.";
+			continue;
+		}
 		$doc['_key']    = $path;
-		$parent_path    = false === strpos( $path, '/' ) ? null : substr( $path, 0, strrpos( $path, '/' ) );
-		$doc['parent']  = $parent_path;
+		$doc['parent']  = $parent_path_of( $path );
 
 		$source = Sources\parse( (string) $doc['markdown_source'] );
 		if ( ! $source ) {
@@ -239,7 +255,8 @@ function lookup_callback( array $entries, array $map, array $aliases, string $ba
 		if ( ! isset( $map[ $key ], $entries[ $map[ $key ] ] ) ) {
 			return null;
 		}
-		return rtrim( $base_url, '/' ) . '/' . ( $entries[ $map[ $key ] ]['_path'] ?? $map[ $key ] ) . '/';
+		$path = (string) ( $entries[ $map[ $key ] ]['_path'] ?? $map[ $key ] );
+		return rtrim( $base_url, '/' ) . '/' . ( '' === $path ? '' : $path . '/' );
 	};
 }
 

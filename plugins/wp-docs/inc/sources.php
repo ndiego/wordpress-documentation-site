@@ -5,9 +5,8 @@
  * A manifest entry's `markdown_source` is one of:
  * - a GitHub blob URL, `https://github.com/<owner>/<repo>/blob/<ref>/<path>` (the contract form);
  * - a raw URL, `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>`;
- * - a repository-relative path, `content/...` or `.spokes/<spoke>/...` (the offline manifests under
- *   `manifest/local/`), which the plugin turns into a local URL `https://wp-docs.local/repo/<path>`
- *   and serves from disk (see local-sources.php).
+ * - a repository-relative path (`docs/...`), which the plugin turns into a local URL
+ *   `https://wp-docs.local/repo/<path>` and serves from the content checkout (see local-sources.php).
  *
  * Refs containing a slash are not supported (the ref is the segment after `blob/`).
  *
@@ -58,7 +57,7 @@ function parse( string $url ): ?array {
 		return array_merge( $base, array( 'kind' => 'local', 'path' => rawurldecode( substr( $url, strlen( LOCAL_BASE ) ) ) ) );
 	}
 	if ( '' !== $url && ! preg_match( '#^[a-z][a-z0-9+.-]*:#i', $url ) && '/' !== $url[0] ) {
-		// A repository-relative path from an offline manifest.
+		// A repository-relative path.
 		$path = normalize_path( $url );
 		return null === $path ? null : array_merge( $base, array( 'kind' => 'local', 'path' => $path ) );
 	}
@@ -229,9 +228,8 @@ function resolve( array $base, string $href ): ?array {
 	}
 
 	if ( '/' === $href[0] ) {
-		// Repository root. For a spoke checked out under `.spokes/<name>/`, that directory is its root.
-		$root = ( 'local' === $base['kind'] && preg_match( '#^\.spokes/[^/]+/#', $base['path'], $m ) ) ? $m[0] : '';
-		$path = normalize_path( $root . ltrim( $href, '/' ) );
+		// Repository root.
+		$path = normalize_path( ltrim( $href, '/' ) );
 	} else {
 		$dir  = dirname( $base['path'] );
 		$path = normalize_path( ( '.' === $dir ? '' : $dir . '/' ) . $href );

@@ -62,6 +62,8 @@ require_once "$plugin/inc/sources.php";
 require_once "$plugin/inc/manifest.php";
 require_once "$plugin/inc/transforms/front-matter.php";
 require_once "$plugin/inc/transforms/alerts.php";
+require_once "$plugin/inc/transforms/anchors.php";
+require_once "$plugin/inc/transforms/agent-markdown.php";
 require_once "$plugin/inc/transforms/links.php";
 require_once "$plugin/inc/transforms/images.php";
 require_once "$plugin/inc/transforms/blocks.php";

@@ -8,7 +8,8 @@
  *    dropped. The stock importer's own strip regex then finds nothing to strip.
  * 2. `wporg_markdown_before_transform`: `before_parse()`, GitHub alerts to placeholders (alerts.php).
  * 3. The stock importer takes the title from the first `# ` line and runs Jetpack's parser.
- * 4. `wporg_markdown_after_transform`: `after_parse()`, links (links.php), images (images.php), then
+ * 4. `wporg_markdown_after_transform`: `after_parse()`, links (links.php), images (images.php), heading
+ *    ids (anchors.php), then
  *    the output mode: `classic` renders alerts as notice HTML and leaves paragraphs to `wpautop` at
  *    render time; `blocks` runs `wpautop( $html, false )` once and converts to blocks (blocks.php).
  * 5. The stock importer runs kses and saves.
@@ -21,6 +22,7 @@
 namespace WP_Docs\Pipeline;
 
 use WP_Docs\Transforms\Alerts;
+use WP_Docs\Transforms\Anchors;
 use WP_Docs\Transforms\Blocks;
 use WP_Docs\Transforms\Images;
 use WP_Docs\Transforms\Links;
@@ -33,6 +35,7 @@ use WP_Docs\Transforms\Links;
 function defaults(): array {
 	return array(
 		'alerts'         => true,
+		'anchors'        => true,
 		'links'          => true,
 		'images'         => true,
 		'mode'           => 'blocks',
@@ -87,6 +90,10 @@ function after_parse( string $html, array $options, array &$report = array() ): 
 		if ( $options['images'] && $options['import_image'] ) {
 			$html = Images\rewrite( $html, $options['base'], $options['import_image'], $report['failed_images'] );
 		}
+	}
+
+	if ( $options['anchors'] ) {
+		$html = Anchors\add_ids( $html );
 	}
 
 	if ( 'blocks' !== $options['mode'] ) {

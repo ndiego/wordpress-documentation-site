@@ -1,7 +1,7 @@
 <?php
 /**
- * Fixture runner: tests/fixtures/<name>.md -> <name>.blocks.html (blocks mode) and <name>.classic.html
- * (classic mode), through the same pipeline the importer runs (Jetpack's parser, core's wpautop, the
+ * Fixture runner: tests/fixtures/<name>.md -> <name>.blocks.html (blocks mode), <name>.classic.html
+ * (classic mode) and <name>.agent.md (the Markdown served to agents), through the same pipeline the importer runs (Jetpack's parser, core's wpautop, the
  * plugin's transforms). No WordPress runtime, no database.
  *
  *     php tests/run-fixtures.php            compare against the expected files
@@ -20,36 +20,38 @@ require __DIR__ . '/bootstrap.php';
 use WP_Docs\Manifest;
 use WP_Docs\Pipeline;
 use WP_Docs\Sources;
+use WP_Docs\Transforms\Agent_Markdown;
+use WP_Docs\Transforms\Front_Matter;
 use WP_Docs\Transforms\Blocks;
 
 $update = in_array( '--update', $argv, true );
 
-// A small manifest the fixture links resolve against.
+// A small manifest the fixture links resolve against: one manifest, with the home as `index` (path "").
 $manifests  = array(
-	'get-started'  => array(
-		'get-started'         => array( 'title' => 'Get started', 'slug' => 'get-started', 'parent' => null, 'order' => 10, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/get-started/README.md', 'id' => 'get-started', 'section' => 'get-started' ),
-		'get-started/install' => array( 'title' => 'Install', 'slug' => 'install', 'parent' => 'get-started', 'order' => 20, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/get-started/install.md', 'id' => 'install', 'section' => 'get-started' ),
-		'welcome'             => array( 'title' => 'Welcome', 'slug' => 'welcome', 'parent' => null, 'order' => 0, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/README.md', 'id' => 'welcome', 'section' => 'get-started' ),
-	),
-	'blocks'       => array(
-		'blocks'       => array( 'title' => 'Blocks', 'slug' => 'blocks', 'parent' => null, 'order' => 10, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/blocks/README.md', 'id' => 'blocks', 'section' => 'blocks' ),
-		'blocks/image' => array( 'title' => 'Image', 'slug' => 'image', 'parent' => 'blocks', 'order' => 10, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/blocks/image.md', 'id' => 'core-image', 'section' => 'blocks' ),
-	),
-	'block-editor' => array(
-		'block-editor'                 => array( 'title' => 'Block editor', 'slug' => 'block-editor', 'parent' => null, 'order' => 10, 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/content/block-editor/README.md', 'id' => 'block-editor', 'section' => 'block-editor' ),
-		'block-editor/getting-started' => array( 'title' => 'Getting started', 'slug' => 'getting-started', 'parent' => 'block-editor', 'order' => 10, 'markdown_source' => 'https://github.com/WordPress/gutenberg/blob/trunk/docs/getting-started/README.md', 'id' => 'be-getting-started', 'section' => 'block-editor' ),
+	'manifest' => array(
+		'index'                        => array( 'title' => 'Welcome', 'slug' => 'index', 'parent' => null, 'order' => 0, 'path' => '', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/README.md', 'id' => 'index', 'section' => '' ),
+		'get-started'                  => array( 'title' => 'Get started', 'slug' => 'get-started', 'parent' => null, 'order' => 10, 'path' => 'get-started/', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/get-started/README.md', 'section' => 'get-started' ),
+		'get-started/install'          => array( 'title' => 'Install', 'slug' => 'install', 'parent' => 'get-started', 'order' => 20, 'path' => 'get-started/install/', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/get-started/install.md', 'section' => 'get-started' ),
+		'blocks'                       => array( 'title' => 'Blocks', 'slug' => 'blocks', 'parent' => null, 'order' => 20, 'path' => 'blocks/', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/blocks/README.md', 'section' => 'blocks' ),
+		'blocks/image'                 => array( 'title' => 'Image', 'slug' => 'image-block', 'parent' => 'blocks', 'order' => 10, 'path' => 'blocks/image/', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/blocks/image.md', 'id' => 'core-image', 'section' => 'blocks' ),
+		'block-editor'                 => array( 'title' => 'Block editor', 'slug' => 'block-editor', 'parent' => null, 'order' => 30, 'path' => 'block-editor/', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/block-editor/README.md', 'section' => 'block-editor' ),
+		'block-editor/getting-started' => array( 'title' => 'Getting started', 'slug' => 'getting-started', 'parent' => 'block-editor', 'order' => 10, 'path' => 'block-editor/getting-started/', 'markdown_source' => 'https://github.com/WordPress/gutenberg/blob/trunk/docs/getting-started/README.md', 'section' => 'block-editor' ),
 	),
 );
 $aliases    = array( 'ndiego/wordpress-documentation' => array( 'prefix' => '', 'ref' => 'trunk' ) );
 $normalized = Manifest\normalize( $manifests );
+if ( $normalized['warnings'] ) {
+	echo "Fixture manifest warnings:\n  " . implode( "\n  ", $normalized['warnings'] ) . "\n";
+	exit( 1 );
+}
 $map        = Manifest\source_map( $normalized['entries'], $aliases );
 $lookup     = Manifest\lookup_callback( $normalized['entries'], $map, $aliases, 'https://wordpress.org/docs/' );
 
 $failures = 0;
 $checked  = 0;
-foreach ( glob( __DIR__ . '/fixtures/*.md' ) as $md ) {
+foreach ( preg_grep( '/\.agent\.md$/', glob( __DIR__ . '/fixtures/*.md' ), PREG_GREP_INVERT ) as $md ) {
 	$name = basename( $md, '.md' );
-	$base = Sources\parse( "https://github.com/ndiego/wordpress-documentation/blob/trunk/content/get-started/{$name}.md" );
+	$base = Sources\parse( "https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/get-started/{$name}.md" );
 
 	foreach ( array( 'blocks', 'classic' ) as $mode ) {
 		$report  = array();
@@ -97,6 +99,38 @@ foreach ( glob( __DIR__ . '/fixtures/*.md' ) as $md ) {
 		} else {
 			echo "ok   {$name} [{$mode}]{$unresolved}\n";
 		}
+	}
+
+	// Markdown for agents: <name>.agent.md.
+	list( , $body ) = Front_Matter\split( file_get_contents( $md ) );
+	$fake_import    = static fn( $target, $alt ) => array( 'url' => 'https://wordpress.org/docs/files/' . basename( $target['path'] ), 'id' => 1 );
+	$actual         = Agent_Markdown\build(
+		$body,
+		array(
+			'title'       => 'Fixture ' . $name,
+			'description' => 'A test fixture.',
+			'type'        => 'reference',
+			'url'         => "https://wordpress.org/docs/get-started/{$name}/",
+			'source'      => Sources\blob_url( $base ),
+		),
+		Agent_Markdown\link_resolver( $base, $lookup ),
+		Agent_Markdown\image_resolver( $base, $fake_import )
+	);
+	$expected = __DIR__ . "/fixtures/{$name}.agent.md";
+	++$checked;
+	if ( $update ) {
+		file_put_contents( $expected, $actual );
+		echo "ok   {$name} [agent]\n";
+	} elseif ( ! file_exists( $expected ) ) {
+		++$failures;
+		echo "FAIL {$name} [agent]\n  missing {$name}.agent.md (run with --update)\n";
+	} elseif ( file_get_contents( $expected ) !== $actual ) {
+		++$failures;
+		$tmp = sys_get_temp_dir() . "/wp-docs-{$name}.agent.md";
+		file_put_contents( $tmp, $actual );
+		echo "FAIL {$name} [agent]\n  differs from expected:\n" . shell_exec( 'diff -u ' . escapeshellarg( $expected ) . ' ' . escapeshellarg( $tmp ) );
+	} else {
+		echo "ok   {$name} [agent]\n";
 	}
 }
 

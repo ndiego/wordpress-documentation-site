@@ -11,6 +11,8 @@
 require __DIR__ . '/bootstrap.php';
 
 use WP_Docs\Manifest;
+use WP_Docs\Transforms\Agent_Markdown;
+use WP_Docs\Transforms\Anchors;
 use WP_Docs\Sources;
 use WP_Docs\Transforms\Alerts;
 use WP_Docs\Transforms\Blocks;
@@ -135,7 +137,7 @@ $cases = array(
 foreach ( $cases as $href => $path ) {
 	check( "links: resolve {$href}", Sources\resolve( $base, $href )['path'], $path );
 }
-check( 'links: root path inside a local spoke', Sources\resolve( Sources\parse( '.spokes/gutenberg/docs/a/b.md' ), '/docs/c.md' )['path'], '.spokes/gutenberg/docs/c.md' );
+check( 'links: root path resolves from the repository root', Sources\resolve( Sources\parse( 'docs/write/a/b.md' ), '/docs/c.md' )['path'], 'docs/c.md' );
 check( 'links: anchor-only is not resolved', Sources\resolve( $base, '#x' ), null );
 check( 'links: external is not resolved', Sources\resolve( $base, 'https://make.wordpress.org/' ), null );
 check( 'links: mailto is not resolved', Sources\resolve( $base, 'mailto:a@b.c' ), null );
@@ -218,6 +220,51 @@ check( 'manifest: link lookup uses the designed path', $dl( Sources\parse( 'cont
 
 $cross = Manifest\normalize( array( 'spoke' => array( 'x' => array( 'slug' => 'x', 'parent' => 'blocks', 'markdown_source' => 'content/x.md' ) ) ), array( 'blocks' ) );
 check( 'manifest: parent from an existing post', array_keys( $cross['entries'] ), array( 'blocks/x' ) );
+
+
+/*
+ * Heading anchors (GitHub's slugs).
+ */
+check( 'anchors: slug', Anchors\slug( 'What’s new? (6.9) & more_stuff' ), 'whats-new-69--more_stuff' );
+check( 'anchors: ids added, repeats numbered, existing kept', Anchors\add_ids( '<h2>Add a title</h2><h3 class="x">Add a title</h3><h2 id="own">Own</h2><p>&lt;h2&gt;not a heading&lt;/h2&gt;</p>' ), '<h2 id="add-a-title">Add a title</h2><h3 id="add-a-title-1" class="x">Add a title</h3><h2 id="own">Own</h2><p>&lt;h2&gt;not a heading&lt;/h2&gt;</p>' );
+check( 'anchors: headings listed with anchors', Anchors\headings( "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\" id=\"a-b\">A <code>b</code></h2>\n<!-- /wp:heading --><h4 id=\"skip\">Skip</h4><h3 id=\"c\">C &amp; D</h3>" ), array( array( 'level' => 2, 'text' => 'A b', 'anchor' => 'a-b' ), array( 'level' => 3, 'text' => 'C & D', 'anchor' => 'c' ) ) );
+
+/*
+ * The manifest with the home (`index`, path "").
+ */
+$home_manifest = array(
+	'index'               => array( 'title' => 'WordPress documentation', 'slug' => 'index', 'parent' => null, 'order' => 0, 'path' => '', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/README.md', 'type' => 'guide', 'section' => '' ),
+	'write'               => array( 'title' => 'Write and edit', 'slug' => 'write', 'parent' => null, 'order' => 20, 'path' => 'write/', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/write/README.md', 'section' => 'write', 'type' => 'guide' ),
+	'write/create-a-post' => array( 'title' => 'Create a post', 'slug' => 'create-a-post', 'parent' => 'write', 'order' => 10, 'path' => 'write/create-a-post/', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/write/create-a-post.md', 'section' => 'write', 'type' => 'tutorial', 'status' => '', 'description' => 'Write a post.', 'updated' => '2026-10-20', 'redirect_from' => array( '/documentation/article/write-posts-classic-editor/' ) ),
+	'get-started'         => array( 'title' => 'Get started', 'slug' => 'get-started', 'parent' => null, 'order' => 10, 'path' => 'get-started/', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/get-started/README.md', 'section' => 'get-started' ),
+);
+$hm = Manifest\normalize( array( 'manifest' => $home_manifest ) );
+check( 'manifest index: no warnings', $hm['warnings'], array() );
+check( 'manifest index: home kept with an empty path', array( $hm['entries']['index']['_path'], $hm['entries']['index']['parent'], $hm['entries']['index']['id'] ), array( '', null, 'index' ) );
+check( 'manifest index: top level first, then by order', array_keys( $hm['entries'] ), array( 'index', 'get-started', 'write', 'write/create-a-post' ) );
+check( 'manifest index: extension fields kept', array( $hm['entries']['write/create-a-post']['type'], $hm['entries']['write/create-a-post']['updated'], $hm['entries']['write/create-a-post']['_path'] ), array( 'tutorial', '2026-10-20', 'write/create-a-post' ) );
+$hl = Manifest\lookup_callback( $hm['entries'], Manifest\source_map( $hm['entries'] ), array(), 'https://example.org/docs/' );
+check( 'manifest index: link to the home README is /docs/', $hl( Sources\parse( 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/README.md' ) ), 'https://example.org/docs/' );
+check( 'manifest index: link to a page', $hl( Sources\parse( 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/write/create-a-post.md' ) ), 'https://example.org/docs/write/create-a-post/' );
+$two_homes = Manifest\normalize( array( 'manifest' => array( 'index' => $home_manifest['index'], 'other' => array_merge( $home_manifest['index'], array( 'slug' => 'other', 'markdown_source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/other.md' ) ) ) ) );
+check( 'manifest index: a second empty path is skipped', array( array_keys( $two_homes['entries'] ), count( $two_homes['warnings'] ) ), array( array( 'index' ), 1 ) );
+
+/*
+ * Markdown for agents.
+ */
+$page_base = Sources\parse( 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/write/create-a-post.md' );
+$agent_md  = Agent_Markdown\build(
+	"# Create a post\n\nSee [the editor](editor/README.md#toolbar), [home](../README.md), [missing](nope.md), [example](../examples/a.php), [WordPress](https://wordpress.org/) and [top](#top).\n\n![The inserter](../assets/screenshots/inserter.webp \"Inserter\")\n![Remote](https://s.w.org/x.png)\n\n```md\n[keep](editor/README.md)\n```\n\nInline `[keep](editor/README.md)` code.\n\n<a href=\"../get-started/README.md\">raw</a> <img src=\"images/a.png\" alt=\"A\">\n\n[ref]: ../get-started/README.md\n",
+	array( 'title' => 'Create a post', 'description' => 'Write your first post: add blocks, publish.', 'type' => 'tutorial', 'url' => 'https://example.org/docs/write/create-a-post/', 'source' => 'https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/write/create-a-post.md' ),
+	Agent_Markdown\link_resolver(
+		$page_base,
+		static fn( $t ) => array( 'docs/write/editor/README.md' => 'https://example.org/docs/write/editor/', 'docs/README.md' => 'https://example.org/docs/', 'docs/get-started/README.md' => 'https://example.org/docs/get-started/' )[ $t['path'] ] ?? null
+	),
+	Agent_Markdown\image_resolver( $page_base, static fn( $t, $alt ) => array( 'url' => 'https://example.org/wp-content/uploads/' . basename( $t['path'] ), 'id' => 5 ) )
+);
+$agent_expected = "---\ntitle: Create a post\ndescription: \"Write your first post: add blocks, publish.\"\ntype: tutorial\nurl: \"https://example.org/docs/write/create-a-post/\"\nsource: \"https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/write/create-a-post.md\"\n---\n\n# Create a post\n\nSee [the editor](https://example.org/docs/write/editor/#toolbar), [home](https://example.org/docs/), [missing](nope.md), [example](https://github.com/ndiego/wordpress-documentation/blob/trunk/docs/examples/a.php), [WordPress](https://wordpress.org/) and [top](#top).\n\n![The inserter](https://example.org/wp-content/uploads/inserter.webp \"Inserter\")\n![Remote](https://s.w.org/x.png)\n\n```md\n[keep](editor/README.md)\n```\n\nInline `[keep](editor/README.md)` code.\n\n<a href=\"https://example.org/docs/get-started/\">raw</a> <img src=\"https://example.org/wp-content/uploads/a.png\" alt=\"A\">\n\n[ref]: https://example.org/docs/get-started/\n";
+check( 'agent markdown: front matter, absolute links and images, code untouched', $agent_md, $agent_expected );
+check( 'agent markdown: H1 added when the body has none, status shown', Agent_Markdown\build( "Body.\n", array( 'title' => 'T', 'status' => 'placeholder' ), static fn() => null, static fn() => null ), "---\ntitle: T\ndescription: \"\"\ntype: \"\"\nurl: \"\"\nsource: \"\"\nstatus: placeholder\n---\n\n# T\n\nBody.\n" );
 
 /*
  * (e) Redirects.
