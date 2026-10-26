@@ -21,7 +21,8 @@
 		"JETPACK_DEV_DEBUG": true,
 		"WP_ENVIRONMENT_TYPE": "local",
 		"WP_DOCS_MANIFEST": "/var/www/html/wp-content/wp-docs-content/manifest.json",
-		"WP_DOCS_PREFER_LOCAL": true
+		"WP_DOCS_PREFER_LOCAL": true,
+		"WP_DOCS_WEBHOOK_SECRET": "local-webhook-secret"
 	},
 	"mappings": {
 		"wp-content/wp-docs-content": "../wordpress-documentation",

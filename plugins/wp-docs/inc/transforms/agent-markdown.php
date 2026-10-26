@@ -122,55 +122,58 @@ function rewrite( string $markdown, callable $link, callable $image ): string {
  * @return string
  */
 function rewrite_line( string $line, callable $link, callable $image ): string {
-	$parts = preg_split( '/(`+[^`]*`+)/', $line, -1, PREG_SPLIT_DELIM_CAPTURE );
-	foreach ( $parts as $n => $part ) {
-		if ( 1 === $n % 2 ) {
-			continue; // A code span.
-		}
+	// Mask inline code spans so nothing inside them is touched (a span may sit inside a link's text).
+	$spans = array();
+	$part  = preg_replace_callback(
+		'/(`+)(?:(?!\1).)+?\1/',
+		static function ( $m ) use ( &$spans ) {
+			$spans[] = $m[0];
+			return "\x1A" . ( count( $spans ) - 1 ) . "\x1A";
+		},
+		$line
+	);
 
-		// Inline images first (an image can sit inside a link), then inline links:
-		// ![alt](src "title") and [text](target "title").
-		$target_re = '\(\s*(<[^>]*>|[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)(\s+(?:"[^"]*"|\'[^\']*\'))?\s*\)';
-		$text_re   = '\[((?:[^\[\]\\\\]|\\\\.|\[[^\[\]]*\])*)\]';
-		$part      = preg_replace_callback(
-			'/!' . $text_re . $target_re . '/',
-			static function ( $m ) use ( $image ) {
-				$new = $image( trim( $m[2], '<>' ), $m[1] );
-				return null === $new ? $m[0] : '![' . $m[1] . '](' . $new . ( $m[3] ?? '' ) . ')';
-			},
-			$part
-		);
-		$part      = preg_replace_callback(
-			'/(?<!!)' . $text_re . $target_re . '/',
-			static function ( $m ) use ( $link ) {
-				$new = $link( trim( $m[2], '<>' ) );
-				return null === $new ? $m[0] : '[' . $m[1] . '](' . $new . ( $m[3] ?? '' ) . ')';
-			},
-			$part
-		);
+	// Inline images first (an image can sit inside a link), then inline links:
+	// ![alt](src "title") and [text](target "title").
+	$target_re = '\(\s*(<[^>]*>|[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)(\s+(?:"[^"]*"|\'[^\']*\'))?\s*\)';
+	$text_re   = '\[((?:[^\[\]\\\\]|\\\\.|\[[^\[\]]*\])*)\]';
+	$part      = preg_replace_callback(
+		'/!' . $text_re . $target_re . '/',
+		static function ( $m ) use ( $image ) {
+			$new = $image( trim( $m[2], '<>' ), $m[1] );
+			return null === $new ? $m[0] : '![' . $m[1] . '](' . $new . ( $m[3] ?? '' ) . ')';
+		},
+		$part
+	);
+	$part      = preg_replace_callback(
+		'/(?<!!)' . $text_re . $target_re . '/',
+		static function ( $m ) use ( $link ) {
+			$new = $link( trim( $m[2], '<>' ) );
+			return null === $new ? $m[0] : '[' . $m[1] . '](' . $new . ( $m[3] ?? '' ) . ')';
+		},
+		$part
+	);
 
-		// Raw HTML: <a href="..."> and <img src="...">.
-		$part = preg_replace_callback(
-			'/(<a\b[^>]*?\shref=)(["\'])([^"\']*)\2/i',
-			static function ( $m ) use ( $link ) {
-				$new = $link( html_entity_decode( $m[3], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
-				return null === $new ? $m[0] : $m[1] . $m[2] . htmlspecialchars( $new, ENT_QUOTES, 'UTF-8' ) . $m[2];
-			},
-			$part
-		);
-		$part = preg_replace_callback(
-			'/(<img\b[^>]*?\ssrc=)(["\'])([^"\']*)\2/i',
-			static function ( $m ) use ( $image ) {
-				$alt = preg_match( '/\salt=(["\'])([^"\']*)\1/i', $m[0], $a ) ? $a[2] : '';
-				$new = $image( html_entity_decode( $m[3], ENT_QUOTES | ENT_HTML5, 'UTF-8' ), $alt );
-				return null === $new ? $m[0] : $m[1] . $m[2] . htmlspecialchars( $new, ENT_QUOTES, 'UTF-8' ) . $m[2];
-			},
-			$part
-		);
+	// Raw HTML: <a href="..."> and <img src="...">.
+	$part = preg_replace_callback(
+		'/(<a\b[^>]*?\shref=)(["\'])([^"\']*)\2/i',
+		static function ( $m ) use ( $link ) {
+			$new = $link( html_entity_decode( $m[3], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+			return null === $new ? $m[0] : $m[1] . $m[2] . htmlspecialchars( $new, ENT_QUOTES, 'UTF-8' ) . $m[2];
+		},
+		$part
+	);
+	$part = preg_replace_callback(
+		'/(<img\b[^>]*?\ssrc=)(["\'])([^"\']*)\2/i',
+		static function ( $m ) use ( $image ) {
+			$alt = preg_match( '/\salt=(["\'])([^"\']*)\1/i', $m[0], $a ) ? $a[2] : '';
+			$new = $image( html_entity_decode( $m[3], ENT_QUOTES | ENT_HTML5, 'UTF-8' ), $alt );
+			return null === $new ? $m[0] : $m[1] . $m[2] . htmlspecialchars( $new, ENT_QUOTES, 'UTF-8' ) . $m[2];
+		},
+		$part
+	);
 
-		$parts[ $n ] = $part;
-	}
-	return implode( '', $parts );
+	return preg_replace_callback( '/\x1A(\d+)\x1A/', static fn( $m ) => $spans[ (int) $m[1] ], $part );
 }
 
 /**

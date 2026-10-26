@@ -30,7 +30,7 @@ class Importer extends Markdown_Importer {
 	/**
 	 * Bump when a transform changes, so stored ETags stop short-circuiting re-imports.
 	 */
-	const TRANSFORM_VERSION = 2;
+	const TRANSFORM_VERSION = 3;
 
 	/**
 	 * Cron hook for the full, ordered import (manifest stage, then Markdown stage).
@@ -866,6 +866,11 @@ class Importer extends Markdown_Importer {
 		$this->write_manifest_meta( $post_id, $this->current['doc'] );
 
 		update_post_meta( $post_id, '_wp_docs_markdown', wp_slash( $this->agent_markdown( $post_id ) ) );
+
+		// A page with an image that could not be imported is fetched again on the next run.
+		if ( ! empty( $this->current['report']['failed_images'] ) ) {
+			delete_post_meta( $post_id, $this->etag_meta_key );
+		}
 	}
 
 	/**
@@ -949,6 +954,12 @@ class Importer extends Markdown_Importer {
 			if ( ! $tmp || false === file_put_contents( $tmp, $bytes ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 				return null;
 			}
+			// SVG diagrams from the content repository (a trusted source) are allowed for this upload only.
+			$allow_svg = static function ( $mimes ) {
+				$mimes['svg'] = 'image/svg+xml';
+				return $mimes;
+			};
+			add_filter( 'upload_mimes', $allow_svg );
 			$id = media_handle_sideload(
 				array(
 					'name'     => $name,
@@ -956,6 +967,7 @@ class Importer extends Markdown_Importer {
 				),
 				$this->current ? $this->current['post_id'] : 0
 			);
+			remove_filter( 'upload_mimes', $allow_svg );
 			if ( is_wp_error( $id ) ) {
 				wp_delete_file( $tmp );
 				$this->log( "Sideload of {$target['path']} failed: " . $id->get_error_message(), 'warning' );
