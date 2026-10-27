@@ -191,6 +191,15 @@ function enqueue_editor_limits() {
 		return;
 	}
 	$file = dirname( __DIR__ ) . '/assets/editor-limits.js';
+	// Core renders a block toolbar group for every BlockControls fill, even one whose controls all
+	// render nothing. The paragraph's "block" group holds only the text alignment control and the RTL
+	// control, so with text alignment off (as here, or with theme.json typography.textAlign false) an
+	// empty group shows between the mover and the formatting buttons. Hide a group whose slot is empty
+	// until that is fixed upstream.
+	wp_add_inline_style(
+		'wp-edit-blocks',
+		'.block-editor-block-toolbar > .components-toolbar-group:has(> .block-editor-block-toolbar__slot:empty) { display: none; }'
+	);
 	wp_enqueue_script(
 		'wp-docs-editor-limits',
 		plugins_url( 'assets/editor-limits.js', dirname( __DIR__ ) . '/wp-docs.php' ),
