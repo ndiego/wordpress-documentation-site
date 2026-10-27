@@ -39,6 +39,10 @@ add_filter( 'body_class', __NAMESPACE__ . '\body_class' );
 function setup() {
 	add_theme_support( 'responsive-embeds' );
 	remove_theme_support( 'core-block-patterns' );
+	// The editor canvas gets the content styles (tokens and everything inside a page, scoped to the
+	// canvas root as well as to the page's post content) plus a few canvas-only rules.
+	add_theme_support( 'editor-styles' );
+	add_editor_style( array( 'assets/content.css', 'assets/editor.css' ) );
 }
 
 /**
@@ -64,7 +68,8 @@ function enqueue_assets() {
 	if ( wp_style_is( 'wporg-global-fonts', 'registered' ) ) {
 		$deps[] = 'wporg-global-fonts';
 	}
-	wp_enqueue_style( 'wp-docs', $uri . 'style.css', $deps, $version( 'style.css' ) );
+	wp_enqueue_style( 'wp-docs-content', $uri . 'content.css', $deps, $version( 'content.css' ) );
+	wp_enqueue_style( 'wp-docs', $uri . 'style.css', array_merge( $deps, array( 'wp-docs-content' ) ), $version( 'style.css' ) );
 
 	$args = array(
 		'in_footer' => true,

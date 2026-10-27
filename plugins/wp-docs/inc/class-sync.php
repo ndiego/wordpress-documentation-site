@@ -26,10 +26,11 @@
  *    A user without it gets a branch and a pull request instead, and the save is refused with the
  *    pull request's address: the page changes when the pull request merges and the site imports it.
  *
- * Capabilities: `wp_docs_push` is granted to anyone with `edit_others_posts` (editors and
- * administrators) unless a role sets it explicitly; the `wp_docs_user_can_push` filter and the
- * WP_DOCS_GITHUB_MODE constant (`live`, the default, or `review`: everyone proposes) override it.
- * Everyone who can edit the post can propose.
+ * Capabilities: `wp_docs_push` (administrators and editors by default) commits; everyone else who
+ * can edit the post proposes. Both are ordinary capabilities granted to roles on activation
+ * (grant_caps()), so a site can move them between roles. The `wp_docs_user_can_push` filter and the
+ * WP_DOCS_GITHUB_MODE constant (`live`, the default, or `review`: everyone proposes) override the
+ * decision.
  *
  * Other write paths (quick edit, XML-RPC, direct `wp_update_post()`) are guarded: a change to the
  * title, excerpt or content of a docs post that did not come through here is dropped, except from
@@ -51,6 +52,8 @@ defined( 'WPINC' ) || die();
  */
 class Sync {
 
+	const CAPS_VERSION = '1';
+
 	/**
 	 * Per request: post id => what to record after the save goes through.
 	 *
@@ -65,7 +68,44 @@ class Sync {
 		add_filter( 'rest_pre_insert_' . POST_TYPE, array( __CLASS__, 'before_rest_save' ), 10, 2 );
 		add_action( 'rest_after_insert_' . POST_TYPE, array( __CLASS__, 'after_rest_save' ), 10, 3 );
 		add_filter( 'wp_insert_post_data', array( __CLASS__, 'guard_other_writes' ), 20, 2 );
-		add_filter( 'user_has_cap', array( __CLASS__, 'default_caps' ), 10, 4 );
+		add_action( 'init', array( __CLASS__, 'maybe_grant_caps' ), 20 );
+	}
+
+	/**
+	 * The capabilities and the roles that get them when the plugin is activated (or updated to this
+	 * version). Administrators can change them afterwards like any other capability.
+	 *
+	 * @return array<string,string[]> Capability => roles.
+	 */
+	public static function default_caps() {
+		return array(
+			'wp_docs_push'    => array( 'administrator', 'editor' ),
+			'wp_docs_propose' => array( 'administrator', 'editor', 'author', 'contributor' ),
+		);
+	}
+
+	/**
+	 * Grant the capabilities to their default roles.
+	 */
+	public static function grant_caps() {
+		foreach ( self::default_caps() as $cap => $roles ) {
+			foreach ( $roles as $role_name ) {
+				$role = get_role( $role_name );
+				if ( $role && ! $role->has_cap( $cap ) ) {
+					$role->add_cap( $cap );
+				}
+			}
+		}
+		update_option( 'wp_docs_caps_version', self::CAPS_VERSION, true );
+	}
+
+	/**
+	 * Grant the capabilities once on a site where the plugin was active before they existed.
+	 */
+	public static function maybe_grant_caps() {
+		if ( (string) get_option( 'wp_docs_caps_version', '' ) !== self::CAPS_VERSION ) {
+			self::grant_caps();
+		}
 	}
 
 	/*
@@ -73,25 +113,6 @@ class Sync {
 	 * Modes and permissions.
 	 * ---------------------------------------------------------------------------------------------
 	 */
-
-	/**
-	 * `wp_docs_push` defaults to `edit_others_posts`; `wp_docs_propose` to `edit_posts`.
-	 *
-	 * @param array    $allcaps All capabilities.
-	 * @param string[] $caps    Required primitive capabilities.
-	 * @param array    $args    Arguments.
-	 * @param \WP_User $user    User.
-	 * @return array
-	 */
-	public static function default_caps( $allcaps, $caps, $args, $user ) {
-		if ( ! isset( $allcaps['wp_docs_push'] ) && ! empty( $allcaps['edit_others_posts'] ) ) {
-			$allcaps['wp_docs_push'] = true;
-		}
-		if ( ! isset( $allcaps['wp_docs_propose'] ) && ! empty( $allcaps['edit_posts'] ) ) {
-			$allcaps['wp_docs_propose'] = true;
-		}
-		return $allcaps;
-	}
 
 	/**
 	 * The site-wide mode: `live` (pushers commit to the branch) or `review` (everyone proposes).
@@ -123,7 +144,7 @@ class Sync {
 		/**
 		 * Filters whether a user's saves commit straight to the content branch.
 		 *
-		 * @param bool $can_push Default: `wp_docs_push` in live mode.
+		 * @param bool $can_push Default: the `wp_docs_push` capability, in live mode.
 		 * @param int  $user_id  User ID.
 		 */
 		$can_push = (bool) apply_filters( 'wp_docs_user_can_push', $can_push, $user_id );
@@ -167,8 +188,10 @@ class Sync {
 		}
 
 		$post = empty( $prepared->ID ) ? null : get_post( (int) $prepared->ID );
-		if ( ! $post ) {
-			return self::before_create( $prepared, $request );
+		$status = (string) ( $prepared->post_status ?? ( $post ? $post->post_status : 'draft' ) );
+		if ( ! $post || '' === (string) get_post_meta( $post->ID, 'wporg_markdown_source', true ) ) {
+			// Not imported from the repository: a page written here. It gets its file when it is published.
+			return 'publish' === $status ? self::before_create( $post, $prepared ) : $prepared;
 		}
 		if ( 'publish' !== $post->post_status ) {
 			return $prepared; // Drafts and unpublished pages are not on the site; nothing to sync yet.
@@ -256,11 +279,11 @@ class Sync {
 	 * @param bool            $creating Creating.
 	 */
 	public static function after_rest_save( $post, $request, $creating ) {
-		$pending = self::$pending[ $post->ID ] ?? null;
+		$pending = self::$pending[ $post->ID ] ?? ( $creating ? ( self::$pending[0] ?? null ) : null );
 		if ( ! $pending ) {
 			return;
 		}
-		unset( self::$pending[ $post->ID ] );
+		unset( self::$pending[ $post->ID ], self::$pending[0] );
 
 		update_post_meta( $post->ID, '_wp_docs_last_push', wp_json_encode( $pending['push'] ) );
 		update_post_meta( $post->ID, '_wp_docs_commit', $pending['push']['commit'] );
@@ -278,6 +301,11 @@ class Sync {
 		Importer::instance()->refresh_agent_markdown( $post->ID, $pending['raw'] );
 		// The stock importer compares ETags: drop the stored one so the next run fetches this page.
 		delete_post_meta( $post->ID, 'wporg_markdown_etag' );
+		if ( ! empty( $pending['create'] ) ) {
+			// The page is on the site now: its URL resolves, and the sidebar and indexes are rebuilt.
+			Permalinks::rebuild();
+			flush_caches();
+		}
 
 		if ( ! wp_next_scheduled( Importer::CRON_HOOK ) || wp_next_scheduled( Importer::CRON_HOOK ) > time() + 180 ) {
 			wp_schedule_single_event( time() + 180, Importer::CRON_HOOK );
@@ -710,18 +738,192 @@ class Sync {
 	 */
 
 	/**
-	 * A page created in the editor: it gets a file next to its parent's children when it is published.
-	 * Drafts are local until then.
+	 * A page written in the editor is published: it becomes a Markdown file under its parent section,
+	 * committed like an edit (or proposed), and the post is marked so the next import adopts it.
 	 *
-	 * @param \stdClass       $prepared Post data.
-	 * @param WP_REST_Request $request  Request.
+	 * @param WP_Post|null $post     The draft (null when the editor creates and publishes in one request).
+	 * @param \stdClass    $prepared Post data.
 	 * @return \stdClass|WP_Error
 	 */
-	protected static function before_create( $prepared, $request ) {
-		if ( ( $prepared->post_status ?? 'draft' ) !== 'publish' ) {
-			return $prepared;
+	protected static function before_create( $post, $prepared ) {
+		$mode = self::mode_for_user( get_current_user_id() );
+		if ( 'none' === $mode ) {
+			return new WP_Error( 'wp_docs_no_github', 'This site cannot write to GitHub (WP_DOCS_GITHUB_TOKEN is not set), so new pages start in the content repository: add the Markdown file there.', array( 'status' => 409 ) );
 		}
-		return new WP_Error( 'wp_docs_create', 'New pages start on GitHub: add the Markdown file to the content repository (its folder decides where the page goes). Save this as a draft to keep the text here meanwhile.', array( 'status' => 409 ) );
+
+		$parent_id = isset( $prepared->post_parent ) ? (int) $prepared->post_parent : ( $post ? (int) $post->post_parent : 0 );
+		$parent    = $parent_id ? get_post( $parent_id ) : null;
+		$aliases   = repo_aliases();
+		$parent_src = $parent ? Sources\parse( (string) get_post_meta( $parent->ID, 'wporg_markdown_source', true ) ) : null;
+		$parent_gh  = $parent_src ? Sources\to_github( $parent_src, $aliases ) : null;
+		if ( ! $parent_gh || 'readme.md' !== strtolower( basename( $parent_gh['path'] ) ) ) {
+			return new WP_Error( 'wp_docs_parent', 'Choose a parent section in the Doc page panel (a section is a page with its own folder, like Get started or Write and edit). Pages at the top level, or under a page that has no folder, start on GitHub.', array( 'status' => 409 ) );
+		}
+
+		$title = trim( (string) ( $prepared->post_title ?? ( $post ? $post->post_title : '' ) ) );
+		if ( '' === $title ) {
+			return new WP_Error( 'wp_docs_title', 'Give the page a title first.', array( 'status' => 409 ) );
+		}
+		$slug = sanitize_title( (string) ( $prepared->post_name ?? '' ) );
+		if ( '' === $slug && $post && '' !== $post->post_name && 0 !== strpos( $post->post_name, 'auto-draft' ) ) {
+			$slug = sanitize_title( $post->post_name );
+		}
+		if ( '' === $slug ) {
+			$slug = sanitize_title( $title );
+		}
+		$dir        = dirname( $parent_gh['path'] );
+		$path       = $dir . '/' . $slug . '.md';
+		$parent_key = (string) get_post_meta( $parent->ID, '_wp_docs_id', true );
+		$key        = ( '' !== $parent_key && 'index' !== $parent_key ? $parent_key . '/' : '' ) . $slug;
+
+		$client = new GitHub( $parent_gh['owner'], $parent_gh['repo'], GitHub::token() );
+		$exists = $client->file( $path, self::branch() );
+		if ( is_wp_error( $exists ) ) {
+			return self::github_error( $exists, $parent );
+		}
+		if ( $exists ) {
+			return new WP_Error( 'wp_docs_exists', "A page {$path} already exists in the repository. Pick another slug.", array( 'status' => 409 ) );
+		}
+
+		// The body, written from the blocks (there is no source to merge into yet) and verified.
+		$importer = Importer::instance();
+		$context  = $importer->reverse_context( $parent->ID );
+		$options  = $context['options'];
+		$options['base'] = Sources\parse( 'https://github.com/' . $parent_gh['owner'] . '/' . $parent_gh['repo'] . '/blob/' . $parent_gh['ref'] . '/' . $path );
+		$convert  = static fn( string $markdown ) => Pipeline\convert_body( $markdown, $options );
+		$live     = Transforms\Markdown_Out\parse( (string) ( $prepared->post_content ?? ( $post ? $post->post_content : '' ) ) );
+
+		$images      = array();
+		$attachments = array();
+		$image_paths = self::collect_images( $live, $path, $images, $attachments );
+		$warnings    = array();
+		$body        = Transforms\Markdown_Out\blocks_to_markdown(
+			$live,
+			array(
+				'link'  => self::link_resolver( $path ),
+				'image' => self::image_resolver( $path, $image_paths ),
+			),
+			$warnings
+		);
+		$check = Transforms\Reverse\verify( $body, $live, $convert );
+		if ( $check ) {
+			return new WP_Error( 'wp_docs_roundtrip', sprintf( 'Block %d (%s) cannot be written as Markdown exactly, so this page was not published. Change that block, or add the page on GitHub.', $check['index'] + 1, self::block_label( $check['expected'] ) ), array( 'status' => 409 ) );
+		}
+
+		$description = trim( (string) ( $prepared->post_excerpt ?? ( $post ? $post->post_excerpt : '' ) ) );
+		$order       = isset( $prepared->menu_order ) ? (int) $prepared->menu_order : ( $post ? (int) $post->menu_order : 0 );
+		if ( 0 === $order ) {
+			$order = self::next_order( $parent->ID );
+		}
+		$type  = (string) get_post_meta( $post ? $post->ID : 0, '_wp_docs_type', true );
+		$type  = in_array( $type, array( 'tutorial', 'guide', 'concept', 'reference' ), true ) ? $type : 'guide';
+		$front = "---\n" . 'title: ' . Transforms\Reverse\yaml_scalar( $title ) . "\n";
+		if ( '' !== $description ) {
+			$front .= 'description: ' . Transforms\Reverse\yaml_scalar( $description ) . "\n";
+		}
+		$front .= "type: {$type}\norder: {$order}\n---\n";
+		$raw    = Transforms\Reverse\join_file(
+			array(
+				'front_matter' => $front,
+				'title'        => $title,
+				'eol'          => "\n",
+			),
+			$body
+		);
+
+		$user    = wp_get_current_user();
+		$author  = array(
+			'name'  => $user->display_name ? $user->display_name : $user->user_login,
+			'email' => $user->user_email ? $user->user_email : $user->user_login . '@users.noreply.wordpress.org',
+		);
+		$files   = array_merge( array( $path => $raw ), $images );
+		$expect  = array( $path => '' );
+		foreach ( $images as $image_path => $bytes ) {
+			$expect[ $image_path ] = '';
+		}
+		$summary = sprintf( 'New page under %s%s.', $parent->post_title, $images ? sprintf( ', %d image%s uploaded', count( $images ), 1 === count( $images ) ? '' : 's' ) : '' );
+		$message = sprintf( "docs(%s): add %s\n\n%s\n\nWritten in WordPress.", $key, $title, $summary );
+		$blob    = 'https://github.com/' . $parent_gh['owner'] . '/' . $parent_gh['repo'] . '/blob/' . content_repo()['ref'] . '/' . $path;
+		$built   = array(
+			'github' => $client,
+			'path'   => $path,
+			'key'    => $key,
+			'title'  => $title,
+			'raw'    => $raw,
+			'images' => $images,
+			'stats'  => array( 'verbatim' => 0, 'rewritten' => 0, 'added' => count( $live ), 'removed' => 0, 'warnings' => $warnings ),
+		);
+
+		if ( 'commit' !== $mode ) {
+			if ( ! $post ) {
+				return new WP_Error( 'wp_docs_proposed', 'Save the page as a draft first, then publish it to propose it as a pull request.', array( 'status' => 409 ) );
+			}
+			$result = self::propose( $built, $files, $expect, $message, $author, $user, $post, $title, $summary );
+			if ( is_wp_error( $result ) ) {
+				return self::github_error( $result, $post );
+			}
+			return new WP_Error(
+				'wp_docs_proposed',
+				sprintf( 'Proposed as pull request #%d (%s). The page is published here when the pull request is merged and the site imports it; this draft can be deleted then.', $result['number'], $result['html_url'] ),
+				array( 'status' => 409, 'pull_request' => $result['html_url'] )
+			);
+		}
+
+		$result = $client->push( self::branch(), $files, $expect, $message, $author );
+		if ( is_wp_error( $result ) ) {
+			return self::github_error( $result, $parent );
+		}
+
+		$prepared->post_name  = $slug;
+		$prepared->menu_order = $order;
+		self::$pending[ $post ? $post->ID : 0 ] = array(
+			'raw'    => $raw,
+			'images' => $attachments,
+			'create' => true,
+			'meta'   => array(
+				'wporg_markdown_source' => $blob,
+				'_wp_docs_id'           => $key,
+				'_wp_docs_path'         => $key . '/',
+				'_wp_docs_section'      => explode( '/', $key )[0],
+				'_wp_docs_type'         => $type,
+				'_wp_docs_status'       => '',
+				'_wp_docs_description'  => $description,
+				'_wp_docs_output_mode'  => 'blocks',
+				'_wp_docs_source_url'   => $blob,
+				'_wp_docs_edit_url'     => str_replace( '/blob/', '/edit/', $blob ),
+				'_wp_docs_imported'     => gmdate( 'c' ),
+				'_wp_docs_manifest'     => manifest_location(),
+			),
+			'push'   => array(
+				'commit' => $result['commit'],
+				'branch' => self::branch(),
+				'user'   => $user->user_login,
+				'time'   => gmdate( 'c' ),
+			),
+		);
+		return $prepared;
+	}
+
+	/**
+	 * The order a new page gets: after the parent's last child.
+	 *
+	 * @param int $parent_id Parent post.
+	 * @return int
+	 */
+	protected static function next_order( $parent_id ) {
+		$children = get_posts(
+			array(
+				'post_type'      => POST_TYPE,
+				'post_parent'    => $parent_id,
+				'post_status'    => 'publish',
+				'posts_per_page' => 1,
+				'orderby'        => 'menu_order',
+				'order'          => 'DESC',
+				'fields'         => 'ids',
+			)
+		);
+		$last = $children ? (int) get_post_field( 'menu_order', $children[0] ) : 0;
+		return $last + 10;
 	}
 
 	/*

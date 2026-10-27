@@ -18,7 +18,7 @@ require_once __DIR__ . '/tree.php';
  */
 function wp_docs_get_post( $post = null ) {
 	$post = get_post( $post );
-	return ( $post instanceof WP_Post && 'wp-docs' === $post->post_type ) ? $post : null;
+	return ( $post instanceof WP_Post && \WP_Docs\POST_TYPE === $post->post_type ) ? $post : null;
 }
 
 /**

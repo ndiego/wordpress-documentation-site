@@ -110,13 +110,19 @@ GitHub stays the source of truth. The block editor is a second way to write to i
   the source is split into chunks, each chunk is converted on its own so its blocks are known, unchanged chunks are
   kept byte for byte, changed blocks are written back. The result is converted again and compared with the saved
   blocks; a mismatch refuses the save and names the block.
-- Users with `wp_docs_push` (by default anyone with `edit_others_posts`, in `live` mode) commit straight to the
+- Users with `wp_docs_push` (granted to administrators and editors on activation; `wp_docs_propose` to those plus
+  authors and contributors; both are ordinary capabilities a site can move between roles) commit straight to the
   branch (compare-and-swap on the file, retried when the branch moves). The WordPress save then goes through: the
   page is live at once, `_wp_docs_last_push` records the commit, and the import that follows (webhook from the
   content repository's CI, plus a one-off cron run three minutes later) converges the stored content on the canonical
   conversion. Everyone else gets a branch `wp-docs/<user>/<page>` and a pull request; the save is refused with the
   pull request's address (`_wp_docs_pull_request`), and the page changes when it merges and the site imports it.
   `WP_DOCS_GITHUB_MODE = 'review'` makes everyone propose.
+- A page written in the editor becomes a file when it is published: it needs a parent section (a page with its own
+  folder), gets `docs/<section>/<slug>.md` with front matter from the title, excerpt and order, is committed (or
+  proposed) like an edit, and the post is marked (`_wp_docs_id`, `_wp_docs_path`, source) so the next import adopts
+  it. Until the repository's CI has rebuilt the manifest, the importer keeps a page pushed from the editor while its
+  file exists on the branch instead of unpublishing it.
 - Images uploaded in the editor are committed next to the page under `images/`; their attachments get
   `_wp_docs_image_source` and `_wp_docs_image_hash` so the next import reuses them.
 - The editor only offers the blocks that round-trip (`inc/editor.php`: paragraph, heading, list, quote, code,

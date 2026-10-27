@@ -1164,6 +1164,28 @@ class Importer extends Markdown_Importer {
 	 */
 
 	/**
+	 * A page the editor pushed to the repository is not unpublished while its file is still there: the
+	 * manifest that lists it is rebuilt by the repository's CI after the push, so an import can run in
+	 * between (or, locally, read a checkout that has not pulled yet).
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	protected function pushed_page_still_exists( $post_id ) {
+		if ( '' === (string) get_post_meta( $post_id, '_wp_docs_last_push', true ) ) {
+			return false;
+		}
+		$source = Sources\parse( (string) $this->get_markdown_source( $post_id ) );
+		$github = $source ? Sources\to_github( $source, repo_aliases() ) : null;
+		if ( ! $github ) {
+			return false;
+		}
+		$client = new GitHub( $github['owner'], $github['repo'], GitHub::token() );
+		$file   = $client->file( $github['path'], Sync::branch() );
+		return is_array( $file );
+	}
+
+	/**
 	 * Pages that left the manifest become drafts with a `_wp_docs_removed` flag. Never deleted.
 	 *
 	 * @param array $selected Entries of this run.
@@ -1197,6 +1219,10 @@ class Importer extends Markdown_Importer {
 		foreach ( $query->posts as $post ) {
 			$id = (string) get_post_meta( $post->ID, '_wp_docs_id', true );
 			if ( isset( $ids[ $id ] ) ) {
+				continue;
+			}
+			if ( $this->pushed_page_still_exists( $post->ID ) ) {
+				$this->log( "Kept {$id} (post {$post->ID}): written from the editor and still in the repository, but not in this manifest yet.", 'warning' );
 				continue;
 			}
 			wp_update_post(

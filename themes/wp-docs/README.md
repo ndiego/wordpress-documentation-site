@@ -20,6 +20,8 @@ inc/icons.php         inline SVG icons (@wordpress/icons paths, plus sun, moon, 
 blocks/<name>/        nine server-rendered blocks (block.json + render.php)
 parts/                header.html (global header, docs bar), footer.html (global footer)
 templates/            single-docs, archive-docs and front-page (the home), search, 404, index
+assets/content.css   tokens and the content styles, shared with the block editor canvas (add_editor_style)
+assets/editor.css    the canvas-only rules (centred column, title)
 assets/style.css      the only stylesheet that blocks rendering
 assets/search-palette.css   the palette dialog, loaded by search-palette.js when idle or on first open
 assets/sidebar.js     toggles (sessionStorage), drawer, scroll the current page into view

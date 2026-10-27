@@ -121,11 +121,6 @@ function filter_editor_settings( $settings, $context ) {
 		array(
 			'customFontSize'   => false,
 			'defaultFontSizes' => false,
-			'fontSizes'        => array(
-				'default' => array(),
-				'theme'   => array(),
-				'custom'  => array(),
-			),
 			'fontStyle'        => false,
 			'fontWeight'       => false,
 			'letterSpacing'    => false,
@@ -137,11 +132,6 @@ function filter_editor_settings( $settings, $context ) {
 			'writingMode'      => false,
 			'dropCap'          => false,
 			'fluid'            => false,
-			'fontFamilies'     => array(
-				'default' => array(),
-				'theme'   => array(),
-				'custom'  => array(),
-			),
 		)
 	);
 	$features['spacing'] = array_merge(
@@ -152,12 +142,6 @@ function filter_editor_settings( $settings, $context ) {
 			'blockGap'          => false,
 			'customSpacingSize' => false,
 			'defaultSpacingSizes' => false,
-			'spacingSizes'      => array(
-				'default' => array(),
-				'theme'   => array(),
-				'custom'  => array(),
-			),
-			'units'             => array(),
 		)
 	);
 	$features['border'] = array(
@@ -191,7 +175,6 @@ function filter_editor_settings( $settings, $context ) {
 	$settings['disableCustomGradients'] = true;
 	$settings['alignWide']              = false;
 	$settings['colors']                 = array();
-	$settings['fontSizes']              = array();
 	$settings['gradients']              = array();
 	$settings['codeEditingEnabled']     = true;
 
@@ -257,7 +240,7 @@ function filter_notice_block_args( $args, $name ) {
  * @return string[]
  */
 function forbid_delete( $caps, $cap, $user_id, $args ) {
-	if ( 'delete_post' !== $cap || empty( $args[0] ) ) {
+	if ( 'delete_post' !== $cap || empty( $args[0] ) || '' === (string) get_post_meta( (int) $args[0], '_wp_docs_id', true ) ) {
 		return $caps;
 	}
 	if ( POST_TYPE === get_post_type( (int) $args[0] ) ) {

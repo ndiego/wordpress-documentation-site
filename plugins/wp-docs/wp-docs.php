@@ -42,6 +42,8 @@ require_once __DIR__ . '/inc/local-sources.php';
 require_once __DIR__ . '/inc/redirects.php';
 require_once __DIR__ . '/inc/permalinks.php';
 require_once __DIR__ . '/inc/agents.php';
+require_once __DIR__ . '/inc/class-github.php';
+require_once __DIR__ . '/inc/class-sync.php';
 require_once __DIR__ . '/inc/editor-notice.php';
 require_once __DIR__ . '/inc/editor.php';
 require_once __DIR__ . '/inc/global-header-footer.php';
@@ -61,6 +63,9 @@ function activate() {
 	register_post_type();
 	Agents::add_rewrite_rules();
 	flush_rewrite_rules();
+	if ( class_exists( __NAMESPACE__ . '\\Sync' ) ) {
+		Sync::grant_caps();
+	}
 }
 
 /**
@@ -90,8 +95,6 @@ function load_importer() {
 	}
 
 	require_once __DIR__ . '/inc/class-importer.php';
-	require_once __DIR__ . '/inc/class-github.php';
-	require_once __DIR__ . '/inc/class-sync.php';
 	require_once __DIR__ . '/inc/rest.php';
 
 	Importer::instance()->init();

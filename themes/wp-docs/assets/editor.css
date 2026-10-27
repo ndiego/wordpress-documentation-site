@@ -1,0 +1,29 @@
+/**
+ * wp-docs block editor canvas: the page's content column, centred, on the page's background. Everything
+ * inside the column comes from content.css.
+ */
+
+.editor-styles-wrapper {
+	background: var(--wp-docs-bg);
+	color: var(--wp-docs-fg);
+	font-family: var(--wp-docs-font);
+}
+
+.editor-styles-wrapper .is-root-container {
+	box-sizing: border-box;
+	max-width: calc(var(--wp-docs-measure) + 48px);
+	margin: 0 auto;
+	padding: 24px 24px 120px;
+}
+
+.editor-styles-wrapper .editor-post-title,
+.editor-styles-wrapper .wp-block-post-title {
+	max-width: calc(var(--wp-docs-measure) + 48px);
+	margin: 40px auto 0;
+	padding: 0 24px;
+	font-family: var(--wp-docs-font);
+	font-size: 36px;
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--wp-docs-fg);
+}

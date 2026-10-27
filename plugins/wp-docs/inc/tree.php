@@ -108,7 +108,7 @@ function wp_docs_build_tree() {
 			FROM {$wpdb->posts} p{$joins}
 			WHERE p.post_type = %s AND p.post_status = 'publish' AND p.post_password = ''
 			ORDER BY p.menu_order ASC, p.post_title ASC, p.ID ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			'wp-docs'
+			\WP_Docs\POST_TYPE
 		)
 	);
 

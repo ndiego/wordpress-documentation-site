@@ -173,7 +173,7 @@ function import_stamp() {
  */
 function cached( $name, callable $build ) {
 	static $memo = array();
-	$stamp = import_stamp() . '|' . home_url();
+	$stamp = import_stamp() . '|' . get_option( 'wp_docs_cache_version', '' ) . '|' . home_url();
 	if ( isset( $memo[ $name ] ) && $memo[ $name ][0] === $stamp ) {
 		return $memo[ $name ][1];
 	}
@@ -198,4 +198,12 @@ function cached( $name, callable $build ) {
 	}
 	$memo[ $name ] = array( $stamp, $value );
 	return $value;
+}
+
+/**
+ * Invalidate every value cached until the next import (after a page was created from the editor): the
+ * caches are keyed by a version that this bumps.
+ */
+function flush_caches() {
+	update_option( 'wp_docs_cache_version', (string) microtime( true ), false );
 }
