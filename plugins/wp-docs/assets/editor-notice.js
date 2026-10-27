@@ -13,33 +13,48 @@
 	var editor = wp.data.dispatch( 'core/editor' );
 	var LOCK = 'wp-docs-parent';
 
-	/* The GitHub panel in the Doc sidebar: where the page lives, what a save does, the links. */
-	function link( href, text ) {
-		return el( 'a', { href: href, target: '_blank', rel: 'noreferrer noopener' }, text );
+	/* The GitHub panel in the Doc sidebar: rows like the Doc panel's (label, value), then the actions. */
+	var external = el( 'svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, 'aria-hidden': 'true', className: 'wp-docs-github-panel__external' },
+		el( 'path', { d: 'M9.5 6.25H6.5C5.80964 6.25 5.25 6.80964 5.25 7.5V17.5C5.25 18.1904 5.80964 18.75 6.5 18.75H16.5C17.1904 18.75 17.75 18.1904 17.75 17.5V14.5M11.5 12.5L18.75 5.25M12.5 5.25H18.75V11.5' } ) );
+	var pencil = el( 'svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', width: 24, height: 24, style: { fill: 'none' }, stroke: 'currentColor', strokeWidth: 1.5, 'aria-hidden': 'true' },
+		el( 'path', { d: 'M5 19.25H12' } ), el( 'path', { d: 'M10 15L7.5 15.5L8 13L16 5L18 7L10 15Z' } ) );
+	var history = el( 'svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', width: 24, height: 24, style: { fill: 'none' }, stroke: 'currentColor', strokeWidth: 1.5, 'aria-hidden': 'true' },
+		el( 'path', { d: 'M7.59201 17.7565C8.8135 18.6933 10.3417 19.25 12 19.25C16.0041 19.25 19.25 16.0041 19.25 12C19.25 7.99594 16.0041 4.75 12 4.75C7.99594 4.75 4.75 7.99593 4.75 12L4.75 14M14.75 14.75L12.25 12.25L12.25 8M2 12L4.75 14L7.5 12' } ) );
+
+	/* A label and value row, laid out like the Doc panel's own rows (the editor's PostPanelRow is not
+	   exported, so this is the same markup and classes). */
+	function Row( props ) {
+		return el( wp.components.__experimentalHStack, { className: 'editor-post-panel__row' },
+			el( 'div', { className: 'editor-post-panel__row-label' }, props.label ),
+			el( 'div', { className: 'editor-post-panel__row-control' }, props.children ) );
+	}
+	function out( href, text ) {
+		return el( 'a', { href: href, target: '_blank', rel: 'noreferrer noopener', className: 'wp-docs-github-panel__link' }, text, external );
 	}
 	function GitHubPanel() {
-		var pull = data.pull;
-		var push = data.last_push;
 		var rows = [];
 		if ( data.managed ) {
-			rows.push( el( 'p', { key: 'where' }, 'This doc is ', link( data.source_url, data.source_path ), ' in ', data.repo, ' (', data.branch, ').' ) );
-			if ( 'commit' === data.mode ) {
-				rows.push( el( 'p', { key: 'mode' }, 'Saving commits your change and publishes it here right away. Rename, move, reorder or unpublish the doc on GitHub.' ) );
-			} else if ( 'pull-request' === data.mode ) {
-				rows.push( el( 'p', { key: 'mode' }, 'Saving opens a pull request with your change (or updates yours). The doc changes here when it is merged.' ) );
-			} else {
-				rows.push( el( wp.components.Notice, { key: 'mode', status: 'warning', isDismissible: false }, 'This site cannot write to GitHub, so changes made here are refused. Edit the doc on GitHub.' ) );
+			var file = data.source_path.split( '/' ).pop();
+			rows.push( el( Row, { key: 'file', label: 'File' }, out( data.source_url, file ) ) );
+			rows.push( el( Row, { key: 'branch', label: 'Branch' }, out( 'https://github.com/' + data.repo + '/tree/' + data.branch, data.branch ) ) );
+			rows.push( el( Row, { key: 'save', label: 'On save' },
+				'commit' === data.mode ? 'Commits and publishes' : ( 'pull-request' === data.mode ? 'Opens a pull request' : 'Refused (no GitHub access)' ) ) );
+			if ( data.last_push && data.last_push.url ) {
+				rows.push( el( Row, { key: 'commit', label: 'Last commit' }, out( data.last_push.url, data.last_push.commit.slice( 0, 7 ) ) ) );
 			}
-			var links = [ link( data.edit_url, 'Edit on GitHub' ), ' \u00b7 ', link( data.history_url, 'History' ) ];
-			if ( pull && pull.url ) {
-				links.push( ' \u00b7 ', link( pull.url, 'Pull request #' + pull.number ) );
+			if ( data.pull && data.pull.url ) {
+				rows.push( el( Row, { key: 'pull', label: 'Pull request' }, out( data.pull.url, '#' + data.pull.number ) ) );
 			}
-			if ( push && push.url ) {
-				links.push( ' \u00b7 ', link( push.url, 'Last commit ' + push.commit.slice( 0, 7 ) ) );
+			rows.push( el( wp.components.__experimentalHStack, { key: 'actions', spacing: 2, justify: 'flex-start', className: 'wp-docs-github-panel__actions' },
+				el( wp.components.Button, { variant: 'secondary', size: 'compact', icon: pencil, href: data.edit_url, target: '_blank', rel: 'noreferrer noopener' }, 'Edit on GitHub' ),
+				el( wp.components.Button, { variant: 'secondary', size: 'compact', icon: history, href: data.history_url, target: '_blank', rel: 'noreferrer noopener' }, 'History' ) ) );
+			if ( 'none' === data.mode ) {
+				rows.push( el( wp.components.Notice, { key: 'none', status: 'warning', isDismissible: false }, 'This site cannot write to GitHub. Edit the doc there; changes made here are refused.' ) );
 			}
-			rows.push( el( 'p', { key: 'links' }, links ) );
 		} else {
-			rows.push( el( 'p', { key: 'new' }, 'This doc is not in the content repository yet. Publishing writes it there as a Markdown file, in the section chosen under Doc location.' ) );
+			rows.push( el( Row, { key: 'file', label: 'File' }, el( 'span', { className: 'wp-docs-github-panel__muted' }, 'Written on publish' ) ) );
+			rows.push( el( Row, { key: 'branch', label: 'Branch' }, out( 'https://github.com/' + data.repo + '/tree/' + data.branch, data.branch ) ) );
+			rows.push( el( Row, { key: 'save', label: 'On publish' }, 'commit' === data.mode ? 'Commits and publishes' : 'Opens a pull request' ) );
 		}
 		return el( wp.editor.PluginDocumentSettingPanel, { name: 'wp-docs-github', title: 'GitHub', className: 'wp-docs-github-panel' }, rows );
 	}

@@ -62,6 +62,14 @@ function enqueue_editor_notice() {
 		true
 	);
 	wp_add_inline_script( 'wp-docs-editor-notice', 'window.wpDocsEditor = ' . wp_json_encode( $data ) . ';', 'before' );
+	wp_add_inline_style(
+		'wp-edit-blocks',
+		'.wp-docs-github-panel__link { display: inline-flex; align-items: center; gap: 2px; text-decoration: none; }'
+		. ' .wp-docs-github-panel__link:hover { text-decoration: underline; }'
+		. ' .wp-docs-github-panel__external { flex: none; opacity: .7; }'
+		. ' .wp-docs-github-panel__muted { color: #757575; }'
+		. ' .wp-docs-github-panel__actions { margin-top: 8px; }'
+	);
 }
 
 /**

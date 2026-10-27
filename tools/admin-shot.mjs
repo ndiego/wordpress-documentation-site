@@ -15,7 +15,7 @@ try { await page.click( 'button[aria-label="Close"]', { timeout: 1500 } ); } cat
 await page.evaluate( () => wp.data.dispatch( 'core/edit-post' ).openGeneralSidebar( 'edit-post/document' ) );
 await page.waitForTimeout( 800 );
 console.log( 'notices:', await page.evaluate( () => wp.data.select( 'core/notices' ).getNotices().length ) );
-await page.click( '.wp-docs-github-panel button' ); await page.waitForTimeout( 500 );
+if ( 'false' === await page.getAttribute( '.wp-docs-github-panel button', 'aria-expanded' ) ) { await page.click( '.wp-docs-github-panel button' ); await page.waitForTimeout( 500 ); }
 console.log( 'panel:', await page.evaluate( () => document.querySelector( '.wp-docs-github-panel' )?.innerText ) );
-await page.screenshot( { path: 'tools/shots/editor-panel.png' } );
+await page.screenshot( { path: 'tools/shots/editor-panel.png', clip: { x: 1160, y: 90, width: 280, height: 820 } } );
 await browser.close();
