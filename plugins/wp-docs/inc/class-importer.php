@@ -109,6 +109,13 @@ class Importer extends Markdown_Importer {
 	protected $warnings = array();
 
 	/**
+	 * Outside an import (the reverse sync), images are looked up, never fetched.
+	 *
+	 * @var bool
+	 */
+	protected $lookup_images_only = false;
+
+	/**
 	 * Get the singleton.
 	 *
 	 * @return Importer
@@ -388,7 +395,7 @@ class Importer extends Markdown_Importer {
 		$doc    = $this->entry_for_post( $post_id );
 		$source = Sources\parse( (string) $this->get_markdown_source( $post_id ) );
 
-		$this->current = array(
+		$this->current            = array(
 			'post_id'      => (int) $post_id,
 			'doc'          => $doc ? $doc : array(),
 			'source'       => $source,
@@ -396,16 +403,16 @@ class Importer extends Markdown_Importer {
 			'front_matter' => null,
 			'report'       => array(),
 		);
+		$this->lookup_images_only = true;
 		try {
-			$options                 = $this->pipeline_options();
-			$options['import_image'] = array( $this, 'find_image' );
 			return array(
-				'options' => $options,
+				'options' => $this->pipeline_options(),
 				'source'  => $source,
 				'doc'     => $this->current['doc'],
 			);
 		} finally {
-			$this->current = null;
+			$this->current            = null;
+			$this->lookup_images_only = false;
 		}
 	}
 
@@ -418,19 +425,22 @@ class Importer extends Markdown_Importer {
 	public function refresh_agent_markdown( $post_id, $raw ) {
 		$context = $this->reverse_context( $post_id );
 		list( $data, $body ) = Transforms\Front_Matter\split( $raw );
-		$this->current       = array(
+		$this->current            = array(
 			'post_id'       => (int) $post_id,
 			'doc'           => $context['doc'],
 			'source'        => $context['source'],
+			'fetch_url'     => '',
 			'front_matter'  => Transforms\Front_Matter\normalize( $data ),
 			'markdown_body' => $body,
 			'report'        => array(),
 		);
+		$this->lookup_images_only = true;
 		try {
 			update_post_meta( $post_id, '_wp_docs_markdown', wp_slash( $this->agent_markdown( $post_id ) ) );
 			update_post_meta( $post_id, '_wp_docs_blob_sha', GitHub::blob_sha( $raw ) );
 		} finally {
-			$this->current = null;
+			$this->current            = null;
+			$this->lookup_images_only = false;
 		}
 	}
 
@@ -1312,7 +1322,7 @@ class Importer extends Markdown_Importer {
 			'type_map'       => (array) apply_filters( 'wp_docs_alert_type_map', Transforms\Alerts\default_type_map(), $post_id ),
 			'base'           => $this->current ? $this->current['source'] : null,
 			'lookup'         => Manifest\lookup_callback( $entries, $map, $aliases, $base ),
-			'import_image'   => array( $this, 'import_image' ),
+			'import_image'   => array( $this, $this->lookup_images_only ? 'find_image' : 'import_image' ),
 			'file_url'       => static function ( array $target ) use ( $aliases ) {
 				$gh = Sources\to_github( $target, $aliases );
 				return $gh ? Sources\blob_url( $gh ) : null;

@@ -651,11 +651,12 @@ class Sync {
 			if ( is_wp_error( $created ) ) {
 				return $created;
 			}
+			$head = $base_head;
 		}
 
 		// The file on the proposal branch may already carry this user's earlier proposal; the check
 		// against the base is what matters, so the push replaces the file without a per-file expectation.
-		$result = $client->push( $branch, $files, array(), $message, $author );
+		$result = $client->push( $branch, $files, array(), $message, $author, $head );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}

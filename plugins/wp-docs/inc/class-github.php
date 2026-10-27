@@ -285,16 +285,24 @@ class GitHub {
 	 * @param array      $expect  path => blob SHA the content was derived from ('' when the file must not exist).
 	 * @param string     $message Commit message.
 	 * @param array|null $author  Author.
+	 * @param string     $head    The branch head when the caller just created the branch (the API may
+	 *                            not list a new ref for a moment).
 	 * @return array|WP_Error { commit, head, blobs: path => new blob SHA }. `wp_docs_stale` when a file changed.
 	 */
-	public function push( $branch, array $files, array $expect, $message, $author = null ) {
+	public function push( $branch, array $files, array $expect, $message, $author = null, $head = '' ) {
 		for ( $attempt = 0; $attempt < 4; $attempt++ ) {
-			$head = $this->branch_head( $branch );
-			if ( is_wp_error( $head ) ) {
-				return $head;
-			}
-			if ( null === $head ) {
-				return new WP_Error( 'github_404', "The branch {$branch} does not exist in {$this->full_name()}." );
+			if ( 0 !== $attempt || '' === $head ) {
+				$head = $this->branch_head( $branch );
+				if ( is_wp_error( $head ) ) {
+					return $head;
+				}
+				if ( null === $head ) {
+					if ( $attempt < 3 ) {
+						sleep( 1 );
+						continue;
+					}
+					return new WP_Error( 'github_404', "The branch {$branch} does not exist in {$this->full_name()}." );
+				}
 			}
 
 			foreach ( $expect as $path => $sha ) {
