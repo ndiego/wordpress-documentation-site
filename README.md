@@ -127,8 +127,8 @@ is stored, so GitHub stays the source of truth and the site never shows somethin
   survive the trip refuses the save and says which one. `php plugins/wp-docs/tests/run-roundtrip.php` runs
   that check over every page of the content checkout (236 of 237 pass; the one left is a ported list whose
   paragraph wrapping the parser decides in a way the writer does not model).
-- A new page written in the editor gets its Markdown file when it is published, under the parent section
-  chosen in the Doc page panel. Slug, parent, order, status and deletion of existing pages stay on GitHub. The
+- A new doc written in the editor gets its Markdown file when it is published. The pre-publish panel asks
+  where it lives (a section, or the top level) and holds the Publish button until that is chosen. Slug, parent, order, status and deletion of existing pages stay on GitHub. The
   editor only offers the blocks that round-trip and no styling options, and the canvas uses the site's own
   content styles, so a page reads the same in both places.
 

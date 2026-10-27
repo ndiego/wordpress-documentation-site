@@ -63,11 +63,13 @@ function enqueue_editor_notice() {
 		);
 	}
 
+	$managed = $post && '' !== (string) get_post_meta( $post->ID, 'wporg_markdown_source', true );
+
 	$file = dirname( __DIR__ ) . '/assets/editor-notice.js';
 	wp_enqueue_script(
 		'wp-docs-editor-notice',
 		plugins_url( 'assets/editor-notice.js', PLUGIN_FILE ),
-		array( 'wp-data', 'wp-notices', 'wp-dom-ready' ),
+		array( 'wp-data', 'wp-notices', 'wp-dom-ready', 'wp-plugins', 'wp-editor', 'wp-element', 'wp-components' ),
 		file_exists( $file ) ? (string) filemtime( $file ) : '0',
 		true
 	);
@@ -75,11 +77,37 @@ function enqueue_editor_notice() {
 		'wp-docs-editor-notice',
 		'window.wpDocsEditor = ' . wp_json_encode(
 			array(
-				'mode'    => $mode,
-				'text'    => $text,
-				'actions' => $actions,
+				'mode'     => $mode,
+				'text'     => $text,
+				'actions'  => $actions,
+				'managed'  => $managed,
+				'sections' => $managed ? array() : sections_for_editor(),
+				'home'     => $managed ? 0 : (int) ( wp_docs_get_tree()['home'] ?? 0 ),
 			)
 		) . ';',
 		'before'
 	);
+}
+
+/**
+ * The pages a new doc can live under: every page with a folder of its own (a README.md source), in
+ * sidebar order, with its depth for indentation.
+ *
+ * @return array[] { id, title, depth }
+ */
+function sections_for_editor() {
+	$tree     = wp_docs_get_tree();
+	$sections = array();
+	foreach ( $tree['order'] as $id ) {
+		$source = (string) get_post_meta( $id, 'wporg_markdown_source', true );
+		if ( 'readme.md' !== strtolower( basename( (string) wp_parse_url( $source, PHP_URL_PATH ) ) ) ) {
+			continue;
+		}
+		$sections[] = array(
+			'id'    => (int) $id,
+			'title' => html_entity_decode( (string) $tree['nodes'][ $id ]['title'], ENT_QUOTES, 'UTF-8' ),
+			'depth' => (int) $tree['nodes'][ $id ]['depth'],
+		);
+	}
+	return $sections;
 }

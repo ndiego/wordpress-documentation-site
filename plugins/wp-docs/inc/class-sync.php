@@ -757,8 +757,11 @@ class Sync {
 		$parent_src = $parent ? Sources\parse( (string) get_post_meta( $parent->ID, 'wporg_markdown_source', true ) ) : null;
 		$parent_gh  = $parent_src ? Sources\to_github( $parent_src, $aliases ) : null;
 		if ( ! $parent_gh || 'readme.md' !== strtolower( basename( $parent_gh['path'] ) ) ) {
-			return new WP_Error( 'wp_docs_parent', 'Choose a parent section in the Doc page panel (a section is a page with its own folder, like Get started or Write and edit). Pages at the top level, or under a page that has no folder, start on GitHub.', array( 'status' => 409 ) );
+			return new WP_Error( 'wp_docs_parent', 'Choose where the doc lives before publishing: a section (Get started, Write and edit, ...) or the top level, in the Doc panel under Parent. A page that has no folder of its own cannot hold other pages.', array( 'status' => 409 ) );
 		}
+		// The home (docs/README.md) as parent means the top level: the file sits next to the sections and
+		// the post has no parent, which is how the manifest describes a top-level page.
+		$top_level = 'README.md' === $parent_gh['path'] || 'index' === (string) get_post_meta( $parent->ID, '_wp_docs_id', true );
 
 		$title = trim( (string) ( $prepared->post_title ?? ( $post ? $post->post_title : '' ) ) );
 		if ( '' === $title ) {
@@ -774,7 +777,7 @@ class Sync {
 		$dir        = dirname( $parent_gh['path'] );
 		$path       = $dir . '/' . $slug . '.md';
 		$parent_key = (string) get_post_meta( $parent->ID, '_wp_docs_id', true );
-		$key        = ( '' !== $parent_key && 'index' !== $parent_key ? $parent_key . '/' : '' ) . $slug;
+		$key        = ( ! $top_level && '' !== $parent_key ? $parent_key . '/' : '' ) . $slug;
 
 		$client = new GitHub( $parent_gh['owner'], $parent_gh['repo'], GitHub::token() );
 		$exists = $client->file( $path, self::branch() );
@@ -876,6 +879,9 @@ class Sync {
 
 		$prepared->post_name  = $slug;
 		$prepared->menu_order = $order;
+		if ( $top_level ) {
+			$prepared->post_parent = 0;
+		}
 		self::$pending[ $post ? $post->ID : 0 ] = array(
 			'raw'    => $raw,
 			'images' => $attachments,

@@ -118,8 +118,9 @@ GitHub stays the source of truth. The block editor is a second way to write to i
   conversion. Everyone else gets a branch `wp-docs/<user>/<page>` and a pull request; the save is refused with the
   pull request's address (`_wp_docs_pull_request`), and the page changes when it merges and the site imports it.
   `WP_DOCS_GITHUB_MODE = 'review'` makes everyone propose.
-- A page written in the editor becomes a file when it is published: it needs a parent section (a page with its own
-  folder), gets `docs/<section>/<slug>.md` with front matter from the title, excerpt and order, is committed (or
+- A page written in the editor becomes a file when it is published: the pre-publish panel (assets/editor-notice.js,
+  a `PluginPrePublishPanel`) asks for a section (a page with its own folder) or the top level and locks saving until
+  one is chosen; the page gets `docs/<section>/<slug>.md` (or `docs/<slug>.md` at the top level) with front matter from the title, excerpt and order, is committed (or
   proposed) like an edit, and the post is marked (`_wp_docs_id`, `_wp_docs_path`, source) so the next import adopts
   it. Until the repository's CI has rebuilt the manifest, the importer keeps a page pushed from the editor while its
   file exists on the branch instead of unpublishing it.
